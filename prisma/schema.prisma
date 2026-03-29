@@ -1,0 +1,231 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  email       String  @unique
+  name        String
+  password    String
+  phoneNumber String?
+  avatar      String?
+
+  //chỉ có scalar type thì mới là collumm của table, còn 
+
+  // Này có thể dùng để thực hiện chức năng quên mật khẩu, đăng nhập 2 bước
+  totpSecret    String?        @unique
+  status        UserStatus     @default(ACTIVE)
+  roleId        String         @db.ObjectId
+  role          Role           @relation(fields: [roleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  refreshTokens RefreshToken[]
+  likes         Like[]
+
+  reviews            Review[]
+  createdPermissions Permission[] @relation("PermissionCreatedBy")
+  updatedPermissions Permission[] @relation("PermissionUpdatedBy")
+  createdRoles       Role[]       @relation("RoleCreatedBy")
+  updatedRoles       Role[]       @relation("RoleUpdatedBy")
+
+  devices Device[] // Liên kết 1-n với Device
+
+  deletedAt       DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  follows         Follow[]
+  reviewReactions ReviewReaction[]
+
+  @@index([deletedAt])
+}
+
+model VerificationCode {
+  id    String               @id @default(auto()) @map("_id") @db.ObjectId
+  email String
+  code  String
+  type  VerificationCodeType
+
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([email, type])
+  @@index([expiresAt])
+}
+
+model Device {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String         @db.ObjectId
+  user          User           @relation(fields: [userId], references: [id])
+  userAgent     String
+  ip            String
+  lastActive    DateTime       @updatedAt // Thay updatedAt bằng lastActive cho ý nghĩa rõ hơn
+  createdAt     DateTime       @default(now())
+  isActive      Boolean        @default(true) // Trạng thái thiết bị (đang login hay đã logout)
+  refreshTokens RefreshToken[] // Liên kết 1-n với RefreshToken
+}
+
+model RefreshToken {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  token  String @unique
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id])
+
+  deviceId String @db.ObjectId // Foreign key tới Device
+  device   Device @relation(fields: [deviceId], references: [id])
+
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+model Permission {
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  name        String     @unique
+  description String
+  path        String
+  method      HTTPMethod
+
+  rolePermissions RolePermission[]
+
+  createdById String? @db.ObjectId
+  createdBy   User?   @relation("PermissionCreatedBy", fields: [createdById], references: [id])
+  updatedById String? @db.ObjectId
+  updatedBy   User?   @relation("PermissionUpdatedBy", fields: [updatedById], references: [id])
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([deletedAt])
+}
+
+model Role {
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  name        String  @unique
+  description String
+  isActive    Boolean @default(true)
+
+  rolePermissions RolePermission[]
+  users           User[]
+
+  createdById String? @db.ObjectId
+  createdBy   User?   @relation("RoleCreatedBy", fields: [createdById], references: [id])
+  updatedById String? @db.ObjectId
+  updatedBy   User?   @relation("RoleUpdatedBy", fields: [updatedById], references: [id])
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([deletedAt])
+}
+
+model RolePermission {
+  id           String @id @default(auto()) @map("_id") @db.ObjectId
+  roleId       String @db.ObjectId
+  permissionId String @db.ObjectId
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
+}
+
+model Follow {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  comicId   String   @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([comicId, userId])
+  @@index([userId])
+  @@index([comicId])
+}
+
+model Like {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  comicId   String   @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([comicId, userId])
+  @@index([userId])
+  @@index([comicId])
+}
+
+model Review {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  content   String
+  chapterId String   @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  // Self-relation for threaded comments
+  parentId String?  @db.ObjectId
+  parent   Review?  @relation("ReviewReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies  Review[] @relation("ReviewReplies")
+
+  reactions ReviewReaction[]
+
+  @@index([chapterId])
+  @@index([parentId])
+}
+
+model ReviewReaction {
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  reviewId  String       @db.ObjectId
+  review    Review       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  userId    String       @db.ObjectId
+  user      User         @relation(fields: [userId], references: [id])
+  type      ReactionType
+  createdAt DateTime     @default(now())
+
+  @@unique([reviewId, userId])
+}
+
+enum ReactionType {
+  LIKE
+  DISLIKE
+  LOVE
+  HAHA
+  WOW
+  SAD
+  ANGRY
+}
+
+enum VerificationCodeType {
+  REGISTER
+  FORGOT_PASSWORD
+  LOGIN
+  DISABLE_2FA
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum HTTPMethod {
+  GET
+  POST
+  PUT
+  DELETE
+  PATCH
+  OPTIONS
+  HEAD
+}
+
+enum ContentStatus {
+  PENDING
+  PUBLISHED
+  REJECTED
+  DRAFT
+}

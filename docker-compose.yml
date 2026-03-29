@@ -1,0 +1,50 @@
+version: "3.8"
+
+services:
+  # api:
+  #   container_name: fundhive-api
+  #   image: toiladat2923/fundhive-be:latest
+
+  #   ports:
+  #     - "3000:3000"
+  #   env_file:
+  #     - .env
+  #   depends_on:
+  #     - mongo
+  #   networks:
+  #     - fundhive
+  #   restart: unless-stopped
+  #   labels:
+  #     - "com.centurylinklabs.watchtower.enable=true"
+
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - ./docker/redis/data:/data
+    networks:
+      - fundhive
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DOCKER_API_VERSION=1.44
+    command: --interval 60 --cleanup --label-enable
+    restart: unless-stopped
+    networks:
+      - fundhive
+
+volumes:
+  mongo_data:
+
+
+networks:
+  fundhive:
+    driver: bridge

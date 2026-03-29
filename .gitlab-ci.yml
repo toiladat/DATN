@@ -1,0 +1,31 @@
+image: docker:latest
+
+services:
+  - docker:dind
+
+variables:
+  DOCKER_DRIVER: overlay2
+  # Tên image của bạn
+  IMAGE_TAG: toiladat2923/truyenai-be:latest
+
+stages:
+  - build-push
+
+docker-build-push:
+  stage: build-push
+  only:
+    - main  # Chỉ chạy khi push vào branch main
+  before_script:
+    # Đăng nhập Docker Hub
+    - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+  script:
+    # 1. Cài đặt buildx (để build được cho chip ARM của Pi)
+    - docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+    - docker buildx create --use
+    
+    # 2. Build và Push thẳng lên Docker Hub
+    # --platform linux/arm64: QUAN TRỌNG NHẤT, chỉ định build cho Pi
+    # --push: Đẩy lên luôn sau khi build xong
+    - docker buildx build --platform linux/arm64 -t $IMAGE_TAG --push .
+    
+    - echo "✅ Đã build xong bản ARM64 và đẩy lên Docker Hub!"
