@@ -1,31 +1,20 @@
-import { HttpException, Injectable } from '@nestjs/common'
-import { addMilliseconds } from 'date-fns'
-import ms, { StringValue } from 'ms'
+import { HttpException, Inject, Injectable } from '@nestjs/common'
+import { verifyMessage } from 'ethers'
 import {
-  EmailAlreadyExistsException,
-  EmailNotFoundException,
-  FailedToSendOTPException,
-  InvalidOTPException,
-  InvalidPasswordException,
-  OTPExpiredException,
+  InvalidWalletSignatureException,
   RefreshTokenAlreadyUsedException,
   UnauthorizedAccessException,
+  WalletAddressNotFoundException,
+  WalletNonceNotFoundException,
 } from 'src/routes/auth/auth.error'
-import envConfig from 'src/shared/config'
-import { TypeOfVerificationCode, TypeOfVerificationCodeType } from 'src/shared/constants/auth.constant'
-import { generateOTP, isNotFoundPrismaError, isUniqueConstraintPrismaError } from 'src/shared/helpers'
+
+import { isNotFoundPrismaError } from 'src/shared/helpers'
 import { SharedUserRepository } from 'src/shared/repositories/shared-user.repo'
 import { EmailService } from 'src/shared/services/email.service'
 import { HashingService } from 'src/shared/services/hashing.service'
 import { TokenService } from 'src/shared/services/token.service'
 import { AccessTokenPayloadCreate } from 'src/shared/types/jwt.type'
-import {
-  ForgotPasswordBodyType,
-  LoginBodyType,
-  RefreshTokenBodyType,
-  RegisterBodyType,
-  SendOTPBodyType,
-} from './auth.model'
+import { GetNonceQueryType, RefreshTokenBodyType, WalletLoginBodyType } from './auth.model'
 import { AuthRepository } from './auth.repo'
 import { RolesService } from './roles.service'
 
@@ -38,118 +27,8 @@ export class AuthService {
     private readonly sharedUserRepository: SharedUserRepository,
     private readonly emailService: EmailService,
     private readonly tokenService: TokenService,
+    @Inject('REDIS_CLIENT') private readonly redisClient: any,
   ) {}
-
-  async validateVerificationCode({
-    email,
-    code,
-    type,
-  }: {
-    email: string
-    code: string
-    type: TypeOfVerificationCodeType
-  }) {
-    const vevificationCode = await this.authRepository.findUniqueVerificationCode({
-      email_type: {
-        email: email,
-        type: type,
-      },
-    })
-    if (!vevificationCode || vevificationCode.code !== code) {
-      throw InvalidOTPException
-    }
-    if (vevificationCode.expiresAt < new Date()) {
-      throw OTPExpiredException
-    }
-    return vevificationCode
-  }
-
-  async register(body: RegisterBodyType) {
-    try {
-      await this.validateVerificationCode({
-        email: body.email,
-        code: body.code,
-        type: TypeOfVerificationCode.REGISTER,
-      })
-
-      const clientRoleId = await this.rolesService.getClientRoleId()
-      const hashPassword = await this.hashingService.hash(body.password)
-
-      const [user] = await Promise.all([
-        await this.authRepository.createUser({
-          email: body.email,
-          name: body.name,
-          roleId: clientRoleId,
-          password: hashPassword,
-        }),
-        await this.authRepository.deleteVerificationCode({
-          email_type: {
-            email: body.email,
-            type: TypeOfVerificationCode.REGISTER,
-          },
-        }),
-      ])
-      return user
-    } catch (error) {
-      if (isUniqueConstraintPrismaError(error)) {
-        throw EmailAlreadyExistsException
-      }
-      throw error
-    }
-  }
-
-  async sendTOP(body: SendOTPBodyType) {
-    //Kiểm tra user tồn tại
-    const user = await this.sharedUserRepository.findUnique({ email: body.email })
-    if (body.type === TypeOfVerificationCode.REGISTER && user) throw EmailAlreadyExistsException
-    if (body.type === TypeOfVerificationCode.FORGOT_PASSWORD && !user) throw EmailNotFoundException
-
-    const code = generateOTP()
-    await this.authRepository.createVerificationCode({
-      email: body.email,
-      code,
-      type: body.type,
-      expiresAt: addMilliseconds(new Date(), ms(envConfig.OTP_EXPIRES_IN as StringValue)),
-    })
-    // gui email
-    const { error } = await this.emailService.sendOTP({
-      email: body.email,
-      code,
-    })
-    if (error) {
-      throw FailedToSendOTPException
-    }
-    return { message: 'Send OTP Successfully' }
-  }
-
-  async login(body: LoginBodyType & { userAgent: string; ip: string }) {
-    const user = await this.authRepository.findUniqueUserIncludeRole({
-      email: body.email,
-    })
-
-    if (!user) {
-      throw EmailNotFoundException
-    }
-
-    const isPasswordMatch = await this.hashingService.compare(body.password, user.password)
-    if (!isPasswordMatch) {
-      throw InvalidPasswordException
-    }
-
-    // Tạo device
-    const device = await this.authRepository.createDevice({
-      userId: user.id,
-      ip: body.ip,
-      userAgent: body.userAgent,
-    })
-    const tokens = await this.generateTokens({
-      userId: user.id,
-      deviceId: device.id,
-      roleId: user.roleId,
-      roleName: user.role.name,
-    })
-    return tokens
-  }
 
   async generateTokens({ userId, deviceId, roleId, roleName }: AccessTokenPayloadCreate) {
     const [accessToken, refreshToken] = await Promise.all([
@@ -222,42 +101,67 @@ export class AuthService {
     }
   }
 
-  async forgotPassword(body: ForgotPasswordBodyType) {
-    const { email, newPassword } = body
-    // Kiểm tra email có db
+  // ─── Wallet Auth ─────────────────────────────────────────────────────────────
 
-    const user = await this.sharedUserRepository.findUnique({
-      email,
-    })
-    if (!user) throw EmailNotFoundException
+  /**
+   * Step 1: Generate & store a nonce for the given wallet address.
+   * Auto-creates the user if this is the first time the address is seen.
+   */
+  async getNonce({ walletAddress }: GetNonceQueryType) {
+    const { v4: uuidv4 } = await import('uuid')
+    const rawNonce = uuidv4()
+    const nonce = `Please sign this message to authenticate with the app:\n\nNonce: ${rawNonce}`
 
-    // kiểm tra otp hợp lệ
-    await this.validateVerificationCode({
-      email,
-      code: body.code,
-      type: TypeOfVerificationCode.FORGOT_PASSWORD,
-    })
+    const clientRoleId = await this.rolesService.getClientRoleId()
+    await this.authRepository.upsertUserByWallet(walletAddress, clientRoleId)
 
-    const hashPassword = await this.hashingService.hash(newPassword)
+    // Store the nonce in Redis with an expiration time of 5 minutes (300 seconds)
+    await this.redisClient.set(`wallet_nonce:${walletAddress.toLowerCase()}`, nonce, 'EX', 300)
 
-    await Promise.all([
-      // cập nhật password mới
-      await this.authRepository.updateUser(
-        {
-          id: user.id,
-        },
-        { password: hashPassword },
-      ),
-      // xóa otp
-      await this.authRepository.deleteVerificationCode({
-        email_type: {
-          email: email,
-          type: TypeOfVerificationCode.FORGOT_PASSWORD,
-        },
-      }),
-    ])
-    return {
-      message: 'Password changed successfully',
+    return { nonce }
+  }
+
+  /**
+   * Step 2: Verify the signed nonce, clear it (replay protection), and issue JWT tokens.
+   */
+  async walletLogin(body: WalletLoginBodyType & { userAgent: string; ip: string }) {
+    const { walletAddress, signature, userAgent, ip } = body
+
+    // 1. Find the user
+    const user = await this.authRepository.findUniqueUserByWallet(walletAddress)
+    if (!user) throw WalletAddressNotFoundException
+
+    // 2. Make sure a nonce was issued
+    const nonce = await this.redisClient.get(`wallet_nonce:${walletAddress.toLowerCase()}`)
+    if (!nonce) throw WalletNonceNotFoundException
+
+    // 3. Recover signer from ECDSA signature and compare (case-insensitive)
+    let recoveredAddress: string
+    try {
+      recoveredAddress = verifyMessage(nonce, signature)
+    } catch {
+      throw InvalidWalletSignatureException
     }
+
+    if (recoveredAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+      throw InvalidWalletSignatureException
+    }
+
+    // 4. Invalidate nonce to prevent replay attacks
+    await this.redisClient.del(`wallet_nonce:${walletAddress.toLowerCase()}`)
+
+    // 5. Create device & generate JWT tokens (same as regular login)
+    const device = await this.authRepository.createDevice({
+      userId: user.id,
+      ip,
+      userAgent,
+    })
+
+    return this.generateTokens({
+      userId: user.id,
+      deviceId: device.id,
+      roleId: user.roleId,
+      roleName: user.role.name,
+    })
   }
 }

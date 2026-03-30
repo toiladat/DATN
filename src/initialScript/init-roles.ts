@@ -1,10 +1,8 @@
 import envConfig from 'src/shared/config'
 import { RoleName } from 'src/shared/constants/role.constant'
-import { HashingService } from 'src/shared/services/hashing.service'
 import { PrismaService } from 'src/shared/services/prisma.service'
 
 const prisma = new PrismaService()
-const hashingService = new HashingService()
 
 const main = async () => {
   await prisma.$connect()
@@ -29,7 +27,7 @@ const main = async () => {
   const adminUser = await prisma.user.create({
     data: {
       email: envConfig.ADMIN_EMAIL,
-      password: await hashingService.hash(envConfig.ADMIN_PASSWORD),
+
       name: envConfig.ADMIN_NAME,
       phoneNumber: envConfig.ADMIN_PHONE,
       roleId: adminRole.id,

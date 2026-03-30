@@ -1,94 +1,16 @@
 import { Injectable } from '@nestjs/common'
-import { TypeOfVerificationCodeType } from 'src/shared/constants/auth.constant'
 import { UserType, UserUpdateType } from 'src/shared/models/shared-user.model'
 import { PrismaService } from 'src/shared/services/prisma.service'
-import { DeviceType, RefreshTokenType, RoleType, VerificationCodeType } from './auth.model'
+import { DeviceType, RefreshTokenType, RoleType } from './auth.model'
 
 @Injectable()
 export class AuthRepository {
   constructor(private readonly prismaService: PrismaService) {}
 
-  async createUser(
-    user: Pick<UserType, 'email' | 'name' | 'password' | 'roleId'>,
-  ): Promise<Omit<UserType, 'password' | 'totpSecret'>> {
-    return this.prismaService.user.create({
-      data: user,
-      omit: {
-        password: true,
-        totpSecret: true,
-      },
-    })
-  }
-
-  async createUserIncludeRole(
-    user: Pick<UserType, 'email' | 'name' | 'password' | 'avatar' | 'roleId'>,
-  ): Promise<UserType & { role: RoleType }> {
-    return this.prismaService.user.create({
-      data: user,
-      include: {
-        role: true,
-      },
-    })
-  }
-
-  async createVerificationCode(
-    payload: Pick<VerificationCodeType, 'expiresAt' | 'email' | 'code' | 'type'>,
-  ): Promise<VerificationCodeType> {
-    return this.prismaService.verificationCode.upsert({
-      where: {
-        email_type: {
-          email: payload.email,
-          type: payload.type,
-        },
-      },
-      create: payload,
-      update: {
-        code: payload.code,
-        expiresAt: payload.expiresAt,
-      },
-    })
-  }
-
-  findUniqueVerificationCode(
-    // Tìm theo index
-    uniqueValue:
-      | { id: string }
-      | {
-          email_type: {
-            // Key này là do bên prisma define email, type phải là unique
-            email: string
-            type: TypeOfVerificationCodeType
-          }
-        },
-  ): Promise<VerificationCodeType | null> {
-    return this.prismaService.verificationCode.findUnique({
-      where: uniqueValue,
-    })
-  }
+  // ─── Refresh Tokens ───────────────────────────────────────────────────────────
 
   createRefreshToken(data: { token: string; userId: string; expiresAt: Date; deviceId: string }) {
-    return this.prismaService.refreshToken.create({
-      data,
-    })
-  }
-
-  createDevice(
-    data: Pick<DeviceType, 'userId' | 'userAgent' | 'ip'> & Partial<Pick<DeviceType, 'lastActive' | 'isActive'>>, //lastActive &isActive là optional ,
-  ) {
-    return this.prismaService.device.create({
-      data,
-    })
-  }
-
-  findUniqueUserIncludeRole(
-    uniqueObject: { email: string } | { id: string },
-  ): Promise<(UserType & { role: RoleType }) | null> {
-    return this.prismaService.user.findUnique({
-      where: uniqueObject,
-      include: {
-        role: true,
-      },
-    })
+    return this.prismaService.refreshToken.create({ data })
   }
 
   findUniqueRefreshTokenIncludeUserRole(uniqueObject: {
@@ -98,47 +20,67 @@ export class AuthRepository {
       where: uniqueObject,
       include: {
         user: {
-          include: {
-            role: true,
-          },
+          include: { role: true },
         },
       },
-    })
-  }
-
-  updateDevice(deviceId: string, data: Partial<DeviceType>): Promise<DeviceType> {
-    return this.prismaService.device.update({
-      where: {
-        id: deviceId,
-      },
-      data,
     })
   }
 
   deleteRefreshToken(uniqueObject: { token: string }): Promise<RefreshTokenType> {
-    return this.prismaService.refreshToken.delete({
+    return this.prismaService.refreshToken.delete({ where: uniqueObject })
+  }
+
+  // ─── Devices ──────────────────────────────────────────────────────────────────
+
+  createDevice(
+    data: Pick<DeviceType, 'userId' | 'userAgent' | 'ip'> & Partial<Pick<DeviceType, 'lastActive' | 'isActive'>>,
+  ) {
+    return this.prismaService.device.create({ data })
+  }
+
+  updateDevice(deviceId: string, data: Partial<DeviceType>): Promise<DeviceType> {
+    return this.prismaService.device.update({ where: { id: deviceId }, data })
+  }
+
+  // ─── Users ────────────────────────────────────────────────────────────────────
+
+  findUniqueUserIncludeRole(
+    uniqueObject: { email: string } | { id: string },
+  ): Promise<(UserType & { role: RoleType }) | null> {
+    return this.prismaService.user.findUnique({
       where: uniqueObject,
+      include: { role: true },
     })
   }
 
   updateUser(where: { id: string } | { email: string }, data: Partial<UserUpdateType>): Promise<UserType> {
-    return this.prismaService.user.update({
-      where,
-      data,
+    return this.prismaService.user.update({ where, data })
+  }
+
+  // ─── Wallet Auth ──────────────────────────────────────────────────────────────
+
+  findUniqueUserByWallet(walletAddress: string): Promise<(UserType & { role: RoleType }) | null> {
+    return this.prismaService.user.findUnique({
+      where: { walletAddress },
+      include: { role: true },
     })
   }
 
-  deleteVerificationCode(
-    uniqueObject:
-      | { id: string }
-      | {
-          email_type: {
-            // Key này là do bên prisma define email, code, type phải là unique
-            email: string
-            type: TypeOfVerificationCodeType
-          }
-        },
-  ): Promise<VerificationCodeType> {
-    return this.prismaService.verificationCode.delete({ where: uniqueObject })
+  /**
+   * Upsert a user by walletAddress:
+   * - New wallet → create a minimal user (no email/password)
+   * - Existing wallet → no-op update (nonce stored in Redis, not here)
+   */
+  upsertUserByWallet(walletAddress: string, roleId: string): Promise<UserType & { role: RoleType }> {
+    return this.prismaService.user.upsert({
+      where: { walletAddress },
+      create: {
+        walletAddress,
+        name: `User_${walletAddress.slice(2, 8)}`,
+        roleId,
+      },
+      update: {},
+      include: { role: true },
+    })
   }
 }

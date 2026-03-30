@@ -3,15 +3,14 @@ import { UserStatus } from '../constants/auth.constant'
 
 export const UserSchema = z.object({
   id: z.string(),
-  email: z.string().email(),
-  password: z.string().min(2).max(100),
-
+  email: z.string().email().optional().nullable(),
   name: z.string().min(1).max(20),
   phoneNumber: z.string().optional().nullable(),
   avatar: z.string().nullable(),
   roleId: z.string(),
   status: z.nativeEnum(UserStatus),
   totpSecret: z.string().nullable(),
+  walletAddress: z.string().optional().nullable(),
   deletedAt: z.date().nullable().optional(),
   createdAt: z.date().nullable().optional(),
   updatedAt: z.date().nullable().optional(),
@@ -26,7 +25,6 @@ export const UserUpdateSchema = UserSchema.omit({
 })
 
 export const UserProfileSchema = UserSchema.omit({
-  password: true,
   roleId: true,
   deletedAt: true,
   createdAt: true,

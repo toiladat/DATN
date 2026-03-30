@@ -1,32 +1,25 @@
 import { createZodDto } from 'nestjs-zod'
 import {
-  ForgotPasswordBodySchema,
-  GetAuthorizationUrlSchema,
-  LoginBodySchema,
-  LoginResSchema,
+  GetNonceQuerySchema,
+  GetNonceResSchema,
   LogoutBodySchema,
   RefreshTokenBodySchema,
   RefreshTokenResSchema,
-  RegisterBodySchema,
-  RegisterResSchema,
-  SendOTPBodySchema,
+  UserResSchema,
+  WalletLoginBodySchema,
+  WalletLoginResSchema,
 } from './auth.model'
 
-//NestJS mặc định chỉ biết validate bằng class-validator (ValidationPipe).
-//Để NestJS hiểu được DTO sinh ra từ createZodDto, bạn phải bật ZodValidationPipe làm global pipe.
-export class RegisterBodyDTO extends createZodDto(RegisterBodySchema) {}
-export class RegisterResDTO extends createZodDto(RegisterResSchema) {}
-
-export class SendOTPBodyDTO extends createZodDto(SendOTPBodySchema) {}
-
-export class LoginBodyDTO extends createZodDto(LoginBodySchema) {}
-export class LoginResDTO extends createZodDto(LoginResSchema) {}
-
+// Session DTOs
 export class RefreshTokenBodyDTO extends createZodDto(RefreshTokenBodySchema) {}
 export class RefreshTokenResDTO extends createZodDto(RefreshTokenResSchema) {}
-
 export class LogoutBodyDTO extends createZodDto(LogoutBodySchema) {}
 
-export class GetAuthorizationUrlResDTO extends createZodDto(GetAuthorizationUrlSchema) {}
+// User response DTO
+export class UserResDTO extends createZodDto(UserResSchema) {}
 
-export class ForgotPasswordBodyDTO extends createZodDto(ForgotPasswordBodySchema) {}
+// Wallet auth DTOs
+export class GetNonceQueryDTO extends createZodDto(GetNonceQuerySchema) {}
+export class GetNonceResDTO extends createZodDto(GetNonceResSchema) {}
+export class WalletLoginBodyDTO extends createZodDto(WalletLoginBodySchema) {}
+export class WalletLoginResDTO extends createZodDto(WalletLoginResSchema) {}

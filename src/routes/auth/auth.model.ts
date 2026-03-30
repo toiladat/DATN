@@ -1,57 +1,9 @@
-import { TypeOfVerificationCode } from 'src/shared/constants/auth.constant'
 import { UserSchema } from 'src/shared/models/shared-user.model'
 import { z } from 'zod'
 
-export const RegisterBodySchema = UserSchema.pick({
-  email: true,
-  password: true,
-  name: true,
-})
-  .extend({
-    confirmPassword: z.string().min(6).max(100),
-    code: z.string().length(6),
-  })
-  .strict()
-  .superRefine(({ confirmPassword, password }, ctx) => {
-    if (confirmPassword !== password) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Password and confirm password must match',
-        path: ['confirmPassword'], // or password, là array nên format lại ở app.module
-      })
-    }
-  })
+// ─── Shared Response Schemas ───────────────────────────────────────────────────
 
-export const RegisterResSchema = UserSchema.omit({
-  password: true,
-  totpSecret: true,
-})
-
-export const VerificationCodeSchema = z.object({
-  id: z.string(),
-  email: z.string().email(),
-  code: z.string().length(6),
-  type: z.enum([
-    TypeOfVerificationCode.REGISTER,
-    TypeOfVerificationCode.FORGOT_PASSWORD,
-    TypeOfVerificationCode.LOGIN,
-    TypeOfVerificationCode.DISABLE_2FA,
-  ]),
-  expiresAt: z.date(),
-  createdAt: z.date(),
-})
-
-export const SendOTPBodySchema = VerificationCodeSchema.pick({
-  email: true,
-  type: true,
-}).strict()
-
-export const LoginBodySchema = UserSchema.pick({
-  email: true,
-  password: true,
-})
-
-export const LoginResSchema = z.object({
+export const AuthResSchema = z.object({
   accessToken: z.string(),
   refreshToken: z.string(),
 })
@@ -62,7 +14,7 @@ export const RefreshTokenBodySchema = z
   })
   .strict()
 
-export const RefreshTokenResSchema = LoginResSchema
+export const RefreshTokenResSchema = AuthResSchema
 
 export const DeviceSchema = z.object({
   id: z.string(),
@@ -96,45 +48,45 @@ export const RoleSchema = z.object({
 
 export const LogoutBodySchema = RefreshTokenBodySchema
 
-export const GoogleAuthStateSchema = DeviceSchema.pick({
-  userAgent: true,
-  ip: true,
+// User response (no sensitive fields)
+export const UserResSchema = UserSchema.omit({
+  totpSecret: true,
 })
 
-export const GetAuthorizationUrlSchema = z.object({
-  url: z.string().url(),
-})
+// ─── Wallet Auth Schemas ───────────────────────────────────────────────────────
 
-export const ForgotPasswordBodySchema = z
+const evmAddressRegex = /^0x[0-9a-fA-F]{40}$/
+
+export const GetNonceQuerySchema = z
   .object({
-    email: z.string().email(),
-    code: z.string().length(6),
-    newPassword: z.string().min(6).max(100),
-    confirmNewPassword: z.string().min(6).max(100),
+    walletAddress: z.string().regex(evmAddressRegex, 'Invalid EVM wallet address'),
   })
   .strict()
-  .superRefine(({ confirmNewPassword, newPassword }, ctx) => {
-    if (confirmNewPassword != newPassword) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Password do not match ConfirmPassword',
-        path: ['confirmNewPassword'],
-      })
-    }
-  })
 
-export type RegisterBodyType = z.infer<typeof RegisterBodySchema>
-export type RegisterResType = z.infer<typeof RegisterResSchema>
-export type VerificationCodeType = z.infer<typeof VerificationCodeSchema>
-export type SendOTPBodyType = z.infer<typeof SendOTPBodySchema>
-export type LoginBodyType = z.infer<typeof LoginBodySchema>
-export type LoginResType = z.infer<typeof LoginResSchema>
+export const GetNonceResSchema = z.object({
+  nonce: z.string(),
+})
+
+export const WalletLoginBodySchema = z
+  .object({
+    walletAddress: z.string().regex(evmAddressRegex, 'Invalid EVM wallet address'),
+    signature: z.string().min(1),
+  })
+  .strict()
+
+export const WalletLoginResSchema = AuthResSchema
+
+// ─── TypeScript Types ──────────────────────────────────────────────────────────
+
+export type AuthResType = z.infer<typeof AuthResSchema>
 export type RefreshTokenType = z.infer<typeof RefreshTokenSchema>
 export type RefreshTokenBodyType = z.infer<typeof RefreshTokenBodySchema>
-export type RefreshTokenResType = LoginResType
+export type RefreshTokenResType = AuthResType
 export type DeviceType = z.infer<typeof DeviceSchema>
 export type RoleType = z.infer<typeof RoleSchema>
 export type LogoutBodyType = RefreshTokenBodyType
-export type GoogleAuthStateType = z.infer<typeof GoogleAuthStateSchema>
-export type GetAuthorizationUrlType = z.infer<typeof GetAuthorizationUrlSchema>
-export type ForgotPasswordBodyType = z.infer<typeof ForgotPasswordBodySchema>
+
+export type GetNonceQueryType = z.infer<typeof GetNonceQuerySchema>
+export type GetNonceResType = z.infer<typeof GetNonceResSchema>
+export type WalletLoginBodyType = z.infer<typeof WalletLoginBodySchema>
+export type WalletLoginResType = z.infer<typeof WalletLoginResSchema>
