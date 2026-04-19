@@ -1,23 +1,38 @@
 import { Injectable } from '@nestjs/common'
 import { UserProfileType } from 'src/shared/models/shared-user.model'
 import { PrismaService } from 'src/shared/services/prisma.service'
-
+import { SearchUserQueryParamsType } from './user.model'
 @Injectable()
 export class UserRepo {
   constructor(private prismaService: PrismaService) {}
 
-  async findById(id: string): Promise<UserProfileType> {
+  async findById(id: string): Promise<UserProfileType | null> {
     return this.prismaService.user.findUnique({
       where: { id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        avatar: true,
-        status: true,
-        phoneNumber: true,
-        walletAddress: true,
+    })
+  }
+
+  async search(query: SearchUserQueryParamsType): Promise<UserProfileType[]> {
+    const keyword = String(query.keyword).trim()
+
+    const users = await this.prismaService.user.findMany({
+      where: {
+        OR: [
+          {
+            email: {
+              contains: keyword,
+              mode: 'insensitive',
+            },
+          },
+          {
+            walletAddress: {
+              contains: keyword,
+              mode: 'insensitive',
+            },
+          },
+        ],
       },
-    }) as Promise<UserProfileType>
+    })
+    return users
   }
 }

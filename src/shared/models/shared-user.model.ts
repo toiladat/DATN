@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { UserStatus } from '@prisma/client'
+import { UserStatus } from 'src/shared/constants/auth.constant'
 
 export const UserSchema = z.object({
   id: z.string(),
