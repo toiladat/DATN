@@ -9,6 +9,7 @@ import { RemoveRefreshTokenCronjob } from './cronjobs/remove-refresh-token.cronj
 import { AuthModule } from './routes/auth/auth.module'
 
 import { UploadModule } from './routes/upload/upload.module'
+import { ProjectModule } from './routes/project/project.module'
 import { UserModule } from './routes/user/user.module'
 import envConfig from './shared/config'
 import { HttpExceptionFilter } from './shared/filters/http-exception.filter'
@@ -37,10 +38,11 @@ import { SharedModule } from './shared/shared.module'
         },
       ],
     }),
-    SharedModule,
     AuthModule,
+    SharedModule,
     UploadModule,
     UserModule,
+    ProjectModule,
   ],
   controllers: [],
   providers: [

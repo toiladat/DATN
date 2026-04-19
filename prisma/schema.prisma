@@ -10,22 +10,19 @@ datasource db {
 model User {
   id          String  @id @default(auto()) @map("_id") @db.ObjectId
   email       String? @unique
-  name        String? // Để optional vì khi mới ký ví thường chưa có tên
+  name        String?
   phoneNumber String?
   avatar      String?
 
-  // Wallet-based auth
   walletAddress String @unique
 
-  // Này có thể dùng để thực hiện chức năng quên mật khẩu, đăng nhập 2 bước
-  totpSecret    String?        @unique
   status        UserStatus     @default(ACTIVE)
   roleId        String         @db.ObjectId
   role          Role           @relation(fields: [roleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   refreshTokens RefreshToken[]
 
   projects Project[]
-  devices  Device[] // Liên kết 1-n với Device
+  devices  Device[] 
 
   // User Actions
   likes           Like[]
@@ -41,7 +38,6 @@ model User {
   updatedRoles       Role[]       @relation("RoleUpdatedBy")
   createdCategories  Category[]   @relation("CategoryCreatedBy")
   updatedCategories  Category[]   @relation("CategoryUpdatedBy")
-  updatedProjects    Project[]    @relation("ProjectUpdatedBy")
 
   deletedAt DateTime?
   createdAt DateTime  @default(now())
@@ -69,27 +65,24 @@ model Category {
 
 model Project {
   id          String        @id @default(auto()) @map("_id") @db.ObjectId
-  name        String
+  title       String
   slug        String
-  description String
+  subtitle    String
   images      String[]
-  totalAmount String // Dùng String thay Float cho crypto
+  totalAmount Float @default(0) 
   status      ProjectStatus @default(PENDING)
   startDate   DateTime
   endDate     DateTime
 
-  userId    String  @db.ObjectId // Người tạo dự án
+  userId    String  @db.ObjectId 
   user      User    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  updatedBy String? @db.ObjectId
-  updater   User?   @relation("ProjectUpdatedBy", fields: [updatedBy], references: [id])
-
   investments       Investment[]
   projectCategories ProjectCategory[]
   milestones        Milestone[]
   follows           Follow[]
   likes             Like[]
   reviews           Review[]
-
+  projectMembers    ProjectMember[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -99,22 +92,46 @@ model Milestone {
   id          String          @id @default(auto()) @map("_id") @db.ObjectId
   order       Int
   status      MilestoneStatus @default(COMING_SOON)
-  amount      String // Dùng String thay Float
+  amount      Float @default(0) 
   title       String
-  name        String
   description String
   slug        String
   images      String[]
-  startDate   DateTime
-  endDate     DateTime
+  startDate    DateTime
+  endDate    DateTime
+  advantages  String
+  challenges  String
+  outcome     String
+  milestoneUpdates MilestoneUpdate?
 
   projectId String  @db.ObjectId
   project   Project @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
+model MilestoneUpdate {
+  id          String          @id @default(auto()) @map("_id") @db.ObjectId
+  milestoneId String  @unique @db.ObjectId
+  milestone   Milestone @relation(fields: [milestoneId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  completed   String?
+  notCompleted   String?
+  images      String[]
+  video       String?
+  link        String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model ProjectMember {
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  projectId String  @db.ObjectId
+  userId    String  @db.ObjectId
+  role      String  // Founder, Developer, Advisor...
+  project   Project @relation(fields: [projectId], references: [id])
+}
+
 model Investment {
   id     String           @id @default(auto()) @map("_id") @db.ObjectId
-  amount String // Dùng String thay cho Float để tránh sai số dấu phẩy động
+  amount Float @default(0) 
   txHash String?          @unique // Mã giao dịch on-chain
   status InvestmentStatus @default(PENDING)
 
@@ -330,18 +347,21 @@ enum ContentStatus {
 }
 
 enum MilestoneStatus {
-  PROGRESS
-  COMPLETED
-  COMING_SOON
+  COMING_SOON // sắp tới
+  PROGRESS    // đang thực hiện
+  COMPLETED   // đã hoàn thành
+  CANCELLED   // bị hủy
+  APPROVED    // đã được duyệt
+  WITHDRAWN   // đã bị rút
 }
 
 enum ProjectStatus {
-  PENDING
-  PROGRESS
-  ACTIVE
-  EXPIRED
-  FAILED
-  SUCCESS
+  PENDING   // chờ duyệt
+  PROGRESS  // đang gây quỹ
+  EXPIRED   // hết đến startDate và không đủ quỹ
+  ACTIVE    // đã  đủ quỹ và thực hiện milestones
+  FAILED    // thất bại
+  SUCCESS   // thành công
 }
 
 enum InvestmentStatus {
@@ -349,3 +369,4 @@ enum InvestmentStatus {
   SUCCESS
   FAILED
 }
+ 

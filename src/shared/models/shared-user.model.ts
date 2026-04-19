@@ -1,16 +1,15 @@
 import { z } from 'zod'
-import { UserStatus } from '../constants/auth.constant'
+import { UserStatus } from '@prisma/client'
 
 export const UserSchema = z.object({
   id: z.string(),
   email: z.string().email().optional().nullable(),
-  name: z.string().min(1).max(20),
+  name: z.string().nullable(),
   phoneNumber: z.string().optional().nullable(),
   avatar: z.string().nullable(),
   roleId: z.string(),
   status: z.nativeEnum(UserStatus),
-  totpSecret: z.string().nullable(),
-  walletAddress: z.string().optional().nullable(),
+  walletAddress: z.string(),
   deletedAt: z.date().nullable().optional(),
   createdAt: z.date().nullable().optional(),
   updatedAt: z.date().nullable().optional(),
@@ -29,7 +28,6 @@ export const UserProfileSchema = UserSchema.omit({
   deletedAt: true,
   createdAt: true,
   updatedAt: true,
-  totpSecret: true,
   status: true,
 })
 

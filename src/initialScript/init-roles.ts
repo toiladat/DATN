@@ -30,6 +30,7 @@ const main = async () => {
 
       name: envConfig.ADMIN_NAME,
       phoneNumber: envConfig.ADMIN_PHONE,
+      walletAddress: '0x0000000000000000000000000000000000000000', // Admin dummy wallet
       roleId: adminRole.id,
     },
   })

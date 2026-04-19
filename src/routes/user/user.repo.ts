@@ -16,6 +16,7 @@ export class UserRepo {
         avatar: true,
         status: true,
         phoneNumber: true,
+        walletAddress: true,
       },
     }) as Promise<UserProfileType>
   }

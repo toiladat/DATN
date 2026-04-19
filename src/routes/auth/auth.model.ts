@@ -49,9 +49,7 @@ export const RoleSchema = z.object({
 export const LogoutBodySchema = RefreshTokenBodySchema
 
 // User response (no sensitive fields)
-export const UserResSchema = UserSchema.omit({
-  totpSecret: true,
-})
+export const UserResSchema = UserSchema
 
 // ─── Wallet Auth Schemas ───────────────────────────────────────────────────────
 
