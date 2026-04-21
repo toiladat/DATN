@@ -1,4 +1,5 @@
 import { createZodDto } from 'nestjs-zod'
-import { CreateProjectSchema } from './project.model'
+import { CreateProjectBodySchema, CreateProjectRestSchema } from './project.model'
 
-export class CreateProjectDTO extends createZodDto(CreateProjectSchema) {}
+export class CreateProjectBodyDTO extends createZodDto(CreateProjectBodySchema) {}
+export class CreateProjectRestDTO extends createZodDto(CreateProjectRestSchema) {}

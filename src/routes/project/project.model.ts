@@ -34,10 +34,15 @@ export const CreateTeamMemberSchema = z.object({
   roleDescription: z.string(),
 })
 
-export const CreateProjectSchema = z.object({
+export const CreateProjectBodySchema = z.object({
   basics: CreateProjectBasicsSchema,
   milestones: z.array(CreateMilestoneSchema),
   team: z.array(CreateTeamMemberSchema),
 })
 
-export type CreateProjectType = z.infer<typeof CreateProjectSchema>
+export const CreateProjectRestSchema = z.object({
+  id: z.string(),
+})
+
+export type CreateProjectBodyType = z.infer<typeof CreateProjectBodySchema>
+export type CreateProjectRestType = z.infer<typeof CreateProjectRestSchema>

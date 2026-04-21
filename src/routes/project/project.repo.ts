@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common'
 import { PrismaService } from 'src/shared/services/prisma.service'
-import { CreateProjectType } from './project.model'
+import { CreateProjectBodyType, CreateProjectRestType } from './project.model'
 import { generateSlug } from 'src/shared/helpers'
 
 @Injectable()
 export class ProjectRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createProject(ownerId: string, data: CreateProjectType) {
+  async createProject(ownerId: string, data: CreateProjectBodyType): Promise<CreateProjectRestType> {
     const projectSlug = generateSlug(data.basics.title)
 
     return this.prisma.$transaction(async (tx) => {
@@ -56,7 +56,7 @@ export class ProjectRepository {
         })
       }
 
-      return project
+      return { id: project.id }
     })
   }
 }
