@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UploadedFiles, UseInterceptors } from '@nestjs/common'
+import { Body, Controller, Post, Delete, UploadedFiles, UseInterceptors } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiResponse } from '@nestjs/swagger'
 import { ZodSerializerDto } from 'nestjs-zod'
 import { MAX_FILE_QUANTITY } from 'src/shared/constants/upload.constant'
@@ -9,6 +9,7 @@ import {
   PresignedUploadFilesResDTO,
   UploadFilesBodyDTO,
   UploadFilesResDTO,
+  DeleteFileBodyDTO,
 } from './upload.dto'
 import { UploadServices } from './upload.services'
 
@@ -51,5 +52,12 @@ export class UploadController {
   @ApiResponse({ status: 200, type: PresignedUploadFilesResDTO })
   async createPresignedUrls(@Body() body: PresignedUploadFilesBodyDTO, @ActivateUser('userId') userId: string) {
     return await this.uploadFileService.getPresigned(userId, body.info, body.files)
+  }
+
+  @Delete()
+  @ApiResponse({ status: 200 })
+  async deleteFile(@Body() body: DeleteFileBodyDTO) {
+    await this.uploadFileService.deleteByUrl(body.url)
+    return { success: true }
   }
 }

@@ -1,8 +1,9 @@
 import {
   ACCEPTED_IMAGE_TYPES,
+  ACCEPTED_VIDEO_TYPES,
   ACCEPTED_UPLOAD_TYPES,
   MAX_FILE_QUANTITY,
-  MAX_FILE_SIZE,
+  MAX_VIDEO_SIZE,
 } from 'src/shared/constants/upload.constant'
 import { z } from 'zod'
 
@@ -13,10 +14,10 @@ const BaseUploadInfoSchema = z.object({
 const FileMetadataSchema = z
   .object({
     filename: z.string().min(1),
-    filetype: z.string().refine((val) => ACCEPTED_IMAGE_TYPES.includes(val), {
-      message: 'File type must be .jpg, .png, .webp',
+    filetype: z.string().refine((val) => ACCEPTED_IMAGE_TYPES.includes(val) || ACCEPTED_VIDEO_TYPES.includes(val), {
+      message: 'File type must be an accepted image or video format',
     }),
-    filesize: z.number().max(MAX_FILE_SIZE, 'File size must be less than 5MB'),
+    filesize: z.number().max(MAX_VIDEO_SIZE, 'File size must be less than max limit'),
   })
   .strict()
 
@@ -83,6 +84,12 @@ export const UploadToBucketSchema = z.object({
   contentType: z.string(),
   pathInBucket: z.string(),
 })
+
+export const DeleteFileBodySchema = z
+  .object({
+    url: z.string().url(),
+  })
+  .strict()
 
 export type BaseUploadInfoType = z.infer<typeof BaseUploadInfoSchema>
 export type FileMetadataType = z.infer<typeof FileMetadataSchema>

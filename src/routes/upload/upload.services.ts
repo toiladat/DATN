@@ -39,6 +39,14 @@ export class UploadServices implements UploadFileServiceAbstract {
     )
   }
 
+  async deleteByUrl(url: string) {
+    const prefix = `${envConfig.R2_PUBLIC_URL}/`
+    if (url.startsWith(prefix)) {
+      const key = url.replace(prefix, '')
+      await this.deleteFileFromPublicBucket(key)
+    }
+  }
+
   // Get presigned URL
   async getPresignedUrls(
     files: { fileName: string; fileType: string }[],
@@ -46,7 +54,6 @@ export class UploadServices implements UploadFileServiceAbstract {
   ): Promise<PresignedUploadFilesResType> {
     const result = []
     for (const file of files) {
-      // SỬA 2: Sanitize tên file để tránh lỗi dấu cách/tiếng việt trên URL
       const cleanFileName = file.fileName.replace(/\s+/g, '-').replace(/[^\w.-]/g, '')
       const key = `${prefixPath}${Date.now()}-${cleanFileName}`
 

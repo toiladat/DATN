@@ -11,6 +11,7 @@ import { GenerateIdService } from './services/generate-id.services'
 import { HashingService } from './services/hashing.service'
 import { PrismaService } from './services/prisma.service'
 import { TokenService } from './services/token.service'
+import { RedisCacheService } from './services/redis-cache.service'
 
 const sharedServices = [
   PrismaService,
@@ -19,6 +20,7 @@ const sharedServices = [
   SharedUserRepository,
   EmailService,
   GenerateIdService,
+  RedisCacheService,
 ]
 
 @Global() // global mode

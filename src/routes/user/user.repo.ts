@@ -30,8 +30,15 @@ export class UserRepo {
               mode: 'insensitive',
             },
           },
+          {
+            name: {
+              contains: keyword,
+              mode: 'insensitive',
+            },
+          },
         ],
       },
+      take: 5,
     })
     return users
   }
