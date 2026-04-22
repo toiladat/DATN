@@ -2,7 +2,12 @@ import { Injectable } from '@nestjs/common'
 import { PrismaService } from 'src/shared/services/prisma.service'
 import { CreateProjectBodyType, CreateProjectRestType } from './project.model'
 import { generateSlug } from 'src/shared/helpers'
-
+import {
+  INVESTMENT_STATUS,
+  PROJECT_STATUS,
+  DEFAULT_CATEGORY_NAME,
+  MILESTONE_STATUS,
+} from 'src/shared/constants/project.constant'
 @Injectable()
 export class ProjectRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -24,6 +29,16 @@ export class ProjectRepository {
           userId: ownerId,
         },
       })
+
+      // Create primary category relation
+      if (data.basics.primaryCategory) {
+        await tx.projectCategory.create({
+          data: {
+            projectId: project.id,
+            categoryId: data.basics.primaryCategory,
+          },
+        })
+      }
 
       // 2. Create Milestones
       if (data.milestones && data.milestones.length > 0) {
@@ -58,5 +73,54 @@ export class ProjectRepository {
 
       return { id: project.id }
     })
+  }
+
+  async getMyProjects(userId: string) {
+    const projects = await this.prisma.project.findMany({
+      where: { userId },
+      include: {
+        investments: true,
+        milestones: true,
+        projectCategories: {
+          include: { category: true },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    })
+
+    return {
+      projects: projects.map((p) => {
+        const raisedAmount = p.investments.reduce((sum, inv) => {
+          return inv.status === INVESTMENT_STATUS.SUCCESS ? sum + inv.amount : sum
+        }, 0)
+
+        let mappedStatus = 'pending'
+        if (p.status === PROJECT_STATUS.PROGRESS) mappedStatus = 'progress'
+        else if (p.status === PROJECT_STATUS.ACTIVE) mappedStatus = 'active'
+        else if (p.status === PROJECT_STATUS.SUCCESS) mappedStatus = 'success'
+        else if (p.status === PROJECT_STATUS.FAILED || p.status === PROJECT_STATUS.EXPIRED) mappedStatus = 'rejected'
+
+        const primaryCat = p.projectCategories[0]?.category?.name || DEFAULT_CATEGORY_NAME
+
+        const totalMilestones = p.milestones.length
+        const completedMilestones = p.milestones.filter((m) => m.status === MILESTONE_STATUS.COMPLETED).length
+
+        return {
+          id: p.id,
+          title: p.title,
+          description: p.subtitle,
+          status: mappedStatus,
+          fundingGoal: p.totalAmount,
+          raisedAmount,
+          image: p.images[0] || null,
+          primaryCategory: primaryCat,
+          startDate: p.startDate.getTime(),
+          endDate: p.endDate.getTime(),
+          updatedAt: p.updatedAt.getTime(),
+          totalMilestones,
+          completedMilestones,
+        }
+      }),
+    }
   }
 }

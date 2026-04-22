@@ -9,4 +9,8 @@ export class ProjectService {
   async create(ownerId: string, data: CreateProjectBodyType) {
     return this.projectRepo.createProject(ownerId, data)
   }
+
+  async getMyProjects(userId: string) {
+    return this.projectRepo.getMyProjects(userId)
+  }
 }

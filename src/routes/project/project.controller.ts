@@ -1,7 +1,7 @@
-import { Body, Controller, Post } from '@nestjs/common'
+import { Body, Controller, Post, Get } from '@nestjs/common'
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger'
 import { ProjectService } from './project.service'
-import { CreateProjectBodyDTO, CreateProjectRestDTO } from './project.dto'
+import { CreateProjectBodyDTO, CreateProjectRestDTO, ProjectSummaryRestDTO } from './project.dto'
 import { ActivateUser } from 'src/shared/decorators/activate-user.decorator'
 import { ZodSerializerDto } from 'nestjs-zod'
 import { ApiResponse } from '@nestjs/swagger'
@@ -20,5 +20,12 @@ export class ProjectController {
   @ZodSerializerDto(CreateProjectRestDTO)
   create(@ActivateUser('userId') userId: string, @Body() createProjectDto: CreateProjectBodyDTO) {
     return this.projectService.create(userId, createProjectDto)
+  }
+
+  @Get('me')
+  @ApiResponse({ status: 200, type: ProjectSummaryRestDTO, description: 'Return list of user projects' })
+  @ZodSerializerDto(ProjectSummaryRestDTO)
+  getMyProjects(@ActivateUser('userId') userId: string) {
+    return this.projectService.getMyProjects(userId)
   }
 }

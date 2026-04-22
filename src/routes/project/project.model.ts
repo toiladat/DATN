@@ -44,5 +44,26 @@ export const CreateProjectRestSchema = z.object({
   id: z.string(),
 })
 
+export const ProjectSummaryRestSchema = z.object({
+  projects: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      description: z.string(),
+      status: z.string(),
+      fundingGoal: z.number(),
+      raisedAmount: z.number(),
+      image: z.string().nullable().optional(),
+      primaryCategory: z.string().optional(),
+      startDate: z.number(),
+      endDate: z.number(),
+      updatedAt: z.number(),
+      totalMilestones: z.number().optional(),
+      completedMilestones: z.number().optional(),
+    }),
+  ),
+})
+
 export type CreateProjectBodyType = z.infer<typeof CreateProjectBodySchema>
 export type CreateProjectRestType = z.infer<typeof CreateProjectRestSchema>
+export type ProjectSummaryRestType = z.infer<typeof ProjectSummaryRestSchema>
