@@ -1,10 +1,17 @@
-import { Body, Controller, Post, Get } from '@nestjs/common'
+import { Body, Controller, Post, Get, Delete, Param } from '@nestjs/common'
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger'
 import { ProjectService } from './project.service'
-import { CreateProjectBodyDTO, CreateProjectRestDTO, ProjectSummaryRestDTO } from './project.dto'
+import {
+  CreateProjectBodyDTO,
+  CreateProjectRestDTO,
+  ProjectSummaryRestDTO,
+  UpdateMilestoneProgressBodyDTO,
+  ProjectDetailRestDTO,
+} from './project.dto'
 import { ActivateUser } from 'src/shared/decorators/activate-user.decorator'
 import { ZodSerializerDto } from 'nestjs-zod'
 import { ApiResponse } from '@nestjs/swagger'
+import { MessageResDTO } from 'src/shared/dtos/response.dto'
 
 import { Throttle } from '@nestjs/throttler'
 
@@ -15,7 +22,7 @@ export class ProjectController {
   constructor(private readonly projectService: ProjectService) {}
 
   @Post()
-  @Throttle({ default: { limit: 2, ttl: 60000 } }) // Limit to 2 projects per minute
+  @Throttle({ default: { limit: 2, ttl: 60000 } })
   @ApiResponse({ status: 201, type: CreateProjectRestDTO })
   @ZodSerializerDto(CreateProjectRestDTO)
   create(@ActivateUser('userId') userId: string, @Body() createProjectDto: CreateProjectBodyDTO) {
@@ -23,9 +30,35 @@ export class ProjectController {
   }
 
   @Get('me')
-  @ApiResponse({ status: 200, type: ProjectSummaryRestDTO, description: 'Return list of user projects' })
+  @ApiResponse({ status: 200, type: ProjectSummaryRestDTO })
   @ZodSerializerDto(ProjectSummaryRestDTO)
   getMyProjects(@ActivateUser('userId') userId: string) {
     return this.projectService.getMyProjects(userId)
+  }
+
+  @Delete(':id')
+  @ApiResponse({ status: 200, type: MessageResDTO })
+  @ZodSerializerDto(MessageResDTO)
+  async deleteProject(@Param('id') id: string, @ActivateUser('userId') userId: string) {
+    await this.projectService.delete(id, userId)
+    return { message: 'Project deleted successfully' }
+  }
+
+  @Get(':id')
+  @ApiResponse({ status: 200, type: ProjectDetailRestDTO })
+  @ZodSerializerDto(ProjectDetailRestDTO)
+  getProjectById(@Param('id') id: string) {
+    return this.projectService.getById(id)
+  }
+
+  @Post('milestone')
+  @ApiResponse({ status: 201, type: MessageResDTO })
+  @ZodSerializerDto(MessageResDTO)
+  async updateMilestoneProgress(
+    @ActivateUser('userId') userId: string,
+    @Body() payload: UpdateMilestoneProgressBodyDTO,
+  ) {
+    await this.projectService.updateMilestone(userId, payload)
+    return { message: 'Milestone progress updated successfully' }
   }
 }

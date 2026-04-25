@@ -8,6 +8,13 @@ import {
   DEFAULT_CATEGORY_NAME,
   MILESTONE_STATUS,
 } from 'src/shared/constants/project.constant'
+import {
+  ProjectNotFoundException,
+  UnauthorizedProjectAccessException,
+  InvalidProjectStatusException,
+  MilestoneNotFoundException,
+} from './project.error'
+import { UpdateMilestoneProgressBodyType } from './project.model'
 @Injectable()
 export class ProjectRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -16,13 +23,16 @@ export class ProjectRepository {
     const projectSlug = generateSlug(data.basics.title)
 
     return this.prisma.$transaction(async (tx) => {
-      // 1. Create the Project
       const project = await tx.project.create({
         data: {
           title: data.basics.title,
           slug: projectSlug,
           subtitle: data.basics.subtitle,
           images: data.basics.image,
+          video: data.basics.video,
+          location: data.basics.location,
+          description: data.basics.description,
+          risks: data.basics.risks,
           totalAmount: data.basics.fundingGoal,
           startDate: new Date(data.basics.startDate),
           endDate: new Date(data.basics.endDate),
@@ -77,7 +87,10 @@ export class ProjectRepository {
 
   async getMyProjects(userId: string) {
     const projects = await this.prisma.project.findMany({
-      where: { userId },
+      where: {
+        userId,
+        OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
+      },
       include: {
         investments: true,
         milestones: true,
@@ -122,5 +135,132 @@ export class ProjectRepository {
         }
       }),
     }
+  }
+
+  async deleteProject(id: string, userId: string) {
+    const project = await this.prisma.project.findFirst({
+      where: {
+        id,
+        OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
+      },
+    })
+
+    if (!project) throw ProjectNotFoundException
+    if (project.userId !== userId) throw UnauthorizedProjectAccessException
+
+    if (project.status !== PROJECT_STATUS.PENDING) {
+      throw InvalidProjectStatusException
+    }
+
+    // Soft delete
+    return this.prisma.project.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    })
+  }
+
+  async getProjectById(id: string) {
+    const project = await this.prisma.project.findFirst({
+      where: {
+        id,
+        OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
+      },
+      include: {
+        _count: {
+          select: { likes: true, reviews: true },
+        },
+        investments: {
+          include: {
+            user: { select: { id: true, name: true, avatar: true } },
+          },
+        },
+        milestones: {
+          include: {
+            milestoneUpdates: true,
+          },
+        },
+        projectCategories: {
+          include: { category: true },
+        },
+        projectMembers: {
+          include: {
+            user: {
+              select: { id: true, name: true, avatar: true, email: true, walletAddress: true },
+            },
+          },
+        },
+      },
+    })
+
+    if (!project) throw ProjectNotFoundException
+
+    const { projectCategories, _count, investments, ...rest } = project
+
+    const raisedAmount = investments.reduce((sum, inv) => {
+      return inv.status === INVESTMENT_STATUS.SUCCESS ? sum + inv.amount : sum
+    }, 0)
+
+    const topInvestors = [...investments]
+      .filter((inv) => inv.status === INVESTMENT_STATUS.SUCCESS) // Consider only successful
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5)
+      .map((inv) => ({
+        amount: inv.amount,
+        name: inv.user?.name,
+        avatar: inv.user?.avatar,
+      }))
+
+    return {
+      ...rest,
+      category: projectCategories[0]?.category
+        ? { name: projectCategories[0].category.name, slug: projectCategories[0].category.slug }
+        : null,
+      stats: {
+        likes: _count.likes,
+        reviews: _count.reviews,
+      },
+      raisedAmount,
+      topInvestors,
+    }
+  }
+
+  async updateMilestoneProgress(userId: string, payload: UpdateMilestoneProgressBodyType) {
+    const project = await this.prisma.project.findFirst({
+      where: {
+        id: payload.projectId,
+        OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
+      },
+    })
+
+    if (!project) throw ProjectNotFoundException
+    if (project.userId !== userId) throw UnauthorizedProjectAccessException
+
+    if (project.status !== PROJECT_STATUS.ACTIVE) {
+      throw InvalidProjectStatusException
+    }
+
+    const milestone = await this.prisma.milestone.findFirst({
+      where: { id: payload.milestoneId, projectId: payload.projectId },
+    })
+    if (!milestone) throw MilestoneNotFoundException
+
+    return this.prisma.milestoneUpdate.upsert({
+      where: { milestoneId: payload.milestoneId },
+      create: {
+        milestoneId: payload.milestoneId,
+        completed: payload.completed || '',
+        blockers: payload.notCompleted || '',
+        images: payload.images || [],
+        demoUrl: payload.video || null,
+        link: payload.link || null,
+      },
+      update: {
+        completed: payload.completed || '',
+        blockers: payload.notCompleted || '',
+        images: payload.images || [],
+        demoUrl: payload.video || null,
+        link: payload.link || null,
+      },
+    })
   }
 }

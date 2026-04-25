@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const CreateProjectBasicsSchema = z.object({
+export const ProjectBasicsSchema = z.object({
   title: z.string().min(1, 'Project Title is required'),
   subtitle: z.string().min(1, 'Subtitle is required'),
   primaryCategory: z.string().min(1, 'Primary Category is required'),
@@ -15,7 +15,9 @@ export const CreateProjectBasicsSchema = z.object({
   risks: z.string().min(1, 'Risks & Challenges are required'),
 })
 
-export const CreateMilestoneSchema = z.object({
+export const CreateProjectBasicsSchema = ProjectBasicsSchema.strict()
+
+export const MilestoneSchema = z.object({
   name: z.string().min(1, 'Milestone Name is required'),
   description: z.string().min(1, 'Description is required'),
   durationDays: z.number().int().positive('Duration must be greater than 0'),
@@ -27,6 +29,16 @@ export const CreateMilestoneSchema = z.object({
   images: z.array(z.string()).min(1, 'Reference Image is required'),
   expectedOutcome: z.string().min(1, 'Expected Outcome is required'),
 })
+
+export const MilestoneUpdateSchema = z.object({
+  completed: z.string(),
+  blockers: z.string(),
+  images: z.array(z.string()),
+  demoUrl: z.string().optional(),
+  link: z.string().optional(),
+})
+
+export const CreateMilestoneSchema = MilestoneSchema.strict()
 
 export const CreateTeamMemberSchema = z.object({
   id: z.string().min(1, 'ID required'), // This corresponds to User ID in our platform
@@ -63,7 +75,70 @@ export const ProjectSummaryRestSchema = z.object({
     }),
   ),
 })
+export const MilestoneRestSchema = z.object({
+  id: z.string(),
+  order: z.number(),
+  title: z.string(),
+  description: z.string(),
+  amount: z.number(),
+  startDate: z.date().or(z.string()).or(z.number()),
+  endDate: z.date().or(z.string()).or(z.number()),
+  status: z.string(),
+  advantages: z.string().optional(),
+  challenges: z.string().optional(),
+  outcome: z.string().optional(),
+  images: z.array(z.string()),
+  milestoneUpdates: MilestoneUpdateSchema.nullable(),
+})
+
+export const ProjectDetailRestSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  slug: z.string(),
+  subtitle: z.string(),
+  images: z.array(z.string()),
+  video: z.string().optional().nullable(),
+  location: z.string(),
+  description: z.string(),
+  risks: z.string(),
+  totalAmount: z.number(),
+  status: z.string(),
+  startDate: z.date().or(z.string()).or(z.number()),
+  endDate: z.date().or(z.string()).or(z.number()),
+  userId: z.string(),
+  raisedAmount: z.number(),
+  category: z.object({
+    name: z.string(),
+    slug: z.string(),
+  }),
+  stats: z.object({
+    likes: z.number(),
+    reviews: z.number(),
+  }),
+  topInvestors: z.array(
+    z.object({
+      amount: z.number(),
+      name: z.string().optional(),
+      avatar: z.string().optional(),
+    }),
+  ),
+  milestones: z.array(MilestoneRestSchema),
+  projectMembers: z.array(z.any()),
+  createdAt: z.date().or(z.string()).or(z.number()),
+  updatedAt: z.date().or(z.string()).or(z.number()),
+})
+
+export const UpdateMilestoneProgressBodySchema = z.object({
+  projectId: z.string().min(1, 'Project ID is required'),
+  milestoneId: z.string().min(1, 'Milestone ID is required'),
+  completed: z.string().optional(),
+  notCompleted: z.string().optional(),
+  images: z.array(z.string()).optional(),
+  video: z.string().optional(),
+  link: z.string().optional(),
+})
 
 export type CreateProjectBodyType = z.infer<typeof CreateProjectBodySchema>
 export type CreateProjectRestType = z.infer<typeof CreateProjectRestSchema>
 export type ProjectSummaryRestType = z.infer<typeof ProjectSummaryRestSchema>
+export type UpdateMilestoneProgressBodyType = z.infer<typeof UpdateMilestoneProgressBodySchema>

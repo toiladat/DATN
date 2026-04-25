@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { ProjectRepository } from './project.repo'
-import { CreateProjectBodyType } from './project.model'
+import { CreateProjectBodyType, UpdateMilestoneProgressBodyType } from './project.model'
 
 @Injectable()
 export class ProjectService {
@@ -12,5 +12,17 @@ export class ProjectService {
 
   async getMyProjects(userId: string) {
     return this.projectRepo.getMyProjects(userId)
+  }
+
+  async delete(id: string, userId: string) {
+    return this.projectRepo.deleteProject(id, userId)
+  }
+
+  async getById(id: string) {
+    return this.projectRepo.getProjectById(id)
+  }
+
+  async updateMilestone(userId: string, payload: UpdateMilestoneProgressBodyType) {
+    return this.projectRepo.updateMilestoneProgress(userId, payload)
   }
 }

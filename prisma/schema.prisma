@@ -21,14 +21,14 @@ model User {
   role          Role           @relation(fields: [roleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   refreshTokens RefreshToken[]
 
-  projects Project[]
-  devices  Device[] 
+  projects        Project[]
+  devices          Device[]
+  projectMembers   ProjectMember[]
 
   // User Actions
   likes           Like[]
   reviews         Review[]
   follows         Follow[]
-  reviewReactions ReviewReaction[]
   investments     Investment[]
 
   // Audits
@@ -69,6 +69,10 @@ model Project {
   slug        String
   subtitle    String
   images      String[]
+  video       String?
+  location    String @default("")
+  description String @default("")
+  risks       String @default("")
   totalAmount Float @default(0) 
   status      ProjectStatus @default(PENDING)
   startDate   DateTime
@@ -79,13 +83,14 @@ model Project {
   investments       Investment[]
   projectCategories ProjectCategory[]
   milestones        Milestone[]
-  follows           Follow[]
   likes             Like[]
   reviews           Review[]
   projectMembers    ProjectMember[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
+
+  @@index([deletedAt])
 }
 
 model Milestone {
@@ -112,10 +117,10 @@ model MilestoneUpdate {
   id          String          @id @default(auto()) @map("_id") @db.ObjectId
   milestoneId String  @unique @db.ObjectId
   milestone   Milestone @relation(fields: [milestoneId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  completed   String?
-  notCompleted   String?
+  completed   String// Những việc đã làm
+  blockers   String // Những việc chưa làm
   images      String[]
-  video       String?
+  demoUrl       String?
   link        String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -127,6 +132,7 @@ model ProjectMember {
   userId    String  @db.ObjectId
   role      String  // Founder, Developer, Advisor...
   project   Project @relation(fields: [projectId], references: [id])
+  user      User    @relation(fields: [userId], references: [id])
 }
 
 model Investment {
@@ -250,15 +256,9 @@ model RolePermission {
 
 model Follow {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  projectId String   @db.ObjectId
-  project   Project  @relation(fields: [projectId], references: [id])
   userId    String   @db.ObjectId
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
-
-  @@unique([projectId, userId])
-  @@index([userId])
-  @@index([projectId])
 }
 
 model Like {
@@ -278,7 +278,7 @@ model Review {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   content   String
   projectId String   @db.ObjectId
-  project   Project  @relation(fields: [projectId], references: [id]) // Thay vì chapterId
+  project   Project  @relation(fields: [projectId], references: [id])
   userId    String   @db.ObjectId
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
@@ -288,33 +288,11 @@ model Review {
   parent   Review?  @relation("ReviewReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   replies  Review[] @relation("ReviewReplies")
 
-  reactions ReviewReaction[]
 
   @@index([projectId])
   @@index([parentId])
 }
 
-model ReviewReaction {
-  id        String       @id @default(auto()) @map("_id") @db.ObjectId
-  reviewId  String       @db.ObjectId
-  review    Review       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-  userId    String       @db.ObjectId
-  user      User         @relation(fields: [userId], references: [id])
-  type      ReactionType
-  createdAt DateTime     @default(now())
-
-  @@unique([reviewId, userId])
-}
-
-enum ReactionType {
-  LIKE
-  DISLIKE
-  LOVE
-  HAHA
-  WOW
-  SAD
-  ANGRY
-}
 
 enum VerificationCodeType {
   REGISTER
