@@ -13,6 +13,8 @@ import {
   UnauthorizedProjectAccessException,
   InvalidProjectStatusException,
   MilestoneNotFoundException,
+  MilestoneNotUnlockedException,
+  MilestoneAlreadyFinalizedException,
 } from './project.error'
 import { UpdateMilestoneProgressBodyType } from './project.model'
 @Injectable()
@@ -210,8 +212,18 @@ export class ProjectRepository {
         avatar: inv.user?.avatar,
       }))
 
+    const STATUS_MAP: Record<string, string> = {
+      [PROJECT_STATUS.PENDING]: 'pending',
+      [PROJECT_STATUS.PROGRESS]: 'progress',
+      [PROJECT_STATUS.ACTIVE]: 'active',
+      [PROJECT_STATUS.SUCCESS]: 'success',
+      [PROJECT_STATUS.FAILED]: 'rejected',
+      [PROJECT_STATUS.EXPIRED]: 'rejected',
+    }
+
     return {
       ...rest,
+      status: STATUS_MAP[rest.status] ?? rest.status.toLowerCase(),
       category: projectCategories[0]?.category
         ? { name: projectCategories[0].category.name, slug: projectCategories[0].category.slug }
         : null,
@@ -224,42 +236,87 @@ export class ProjectRepository {
     }
   }
 
+  private async assertMilestoneUpdateEligible(projectId: string, milestoneId: string): Promise<{ isLate: boolean }> {
+    const allMilestones = await this.prisma.milestone.findMany({
+      where: { projectId },
+      orderBy: { order: 'asc' },
+      select: { id: true, order: true, status: true, startDate: true, endDate: true },
+    })
+
+    const target = allMilestones.find((m) => m.id === milestoneId)
+    if (!target) throw MilestoneNotFoundException
+
+    // Terminal status check: Cannot update if already finalized
+    const TERMINAL_STATUSES = [
+      MILESTONE_STATUS.COMPLETED,
+      MILESTONE_STATUS.APPROVED,
+      MILESTONE_STATUS.CANCELLED,
+      MILESTONE_STATUS.WITHDRAWN,
+    ]
+    if (TERMINAL_STATUSES.includes(target.status as any)) {
+      throw MilestoneAlreadyFinalizedException
+    }
+
+    // Date window: today must be >= milestone startDate (date-only, no time component)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const startDay = new Date(target.startDate)
+    startDay.setHours(0, 0, 0, 0)
+    if (today < startDay) throw MilestoneNotUnlockedException
+
+    // Sequential prerequisite: milestone 1 has no dependency
+    // Order is always 1-n, so previous milestone is order - 1
+    if (target.order > 1) {
+      const prev = allMilestones.find((m) => m.order === target.order - 1)
+      const DONE_STATUSES = [MILESTONE_STATUS.COMPLETED, MILESTONE_STATUS.APPROVED]
+      if (!prev || !DONE_STATUSES.includes(prev.status as any)) {
+        throw MilestoneNotUnlockedException
+      }
+    }
+
+    // Determine if this is a late update (after endDate)
+    const endDay = new Date(target.endDate)
+    endDay.setHours(23, 59, 59, 999)
+    const isLate = today > endDay
+
+    return { isLate }
+  }
+
   async updateMilestoneProgress(userId: string, payload: UpdateMilestoneProgressBodyType) {
     const project = await this.prisma.project.findFirst({
       where: {
+        userId,
         id: payload.projectId,
         OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
       },
     })
 
     if (!project) throw ProjectNotFoundException
-    if (project.userId !== userId) throw UnauthorizedProjectAccessException
 
     if (project.status !== PROJECT_STATUS.ACTIVE) {
       throw InvalidProjectStatusException
     }
 
-    const milestone = await this.prisma.milestone.findFirst({
-      where: { id: payload.milestoneId, projectId: payload.projectId },
-    })
-    if (!milestone) throw MilestoneNotFoundException
+    const { isLate } = await this.assertMilestoneUpdateEligible(payload.projectId, payload.milestoneId)
 
     return this.prisma.milestoneUpdate.upsert({
       where: { milestoneId: payload.milestoneId },
       create: {
         milestoneId: payload.milestoneId,
-        completed: payload.completed || '',
-        blockers: payload.notCompleted || '',
-        images: payload.images || [],
-        demoUrl: payload.video || null,
-        link: payload.link || null,
+        completed: payload.completed,
+        blockers: payload.blockers,
+        images: payload.images,
+        video: payload.video ?? '',
+        link: payload.link ?? null,
+        isLate,
       },
       update: {
-        completed: payload.completed || '',
-        blockers: payload.notCompleted || '',
-        images: payload.images || [],
-        demoUrl: payload.video || null,
-        link: payload.link || null,
+        completed: payload.completed,
+        blockers: payload.blockers,
+        images: payload.images,
+        video: payload.video ?? '',
+        link: payload.link ?? null,
+        isLate,
       },
     })
   }

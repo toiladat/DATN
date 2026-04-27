@@ -12,3 +12,17 @@ export const InvalidProjectStatusException = new UnprocessableEntityException([
 ])
 
 export const MilestoneNotFoundException = new NotFoundException('Error.MilestoneNotFound')
+
+export const MilestoneNotUnlockedException = new UnprocessableEntityException([
+  {
+    message: 'Error.MilestoneNotUnlocked',
+    path: 'milestoneId',
+  },
+])
+
+export const MilestoneAlreadyFinalizedException = new UnprocessableEntityException([
+  {
+    message: 'Error.MilestoneAlreadyFinalized',
+    path: 'milestoneId',
+  },
+])

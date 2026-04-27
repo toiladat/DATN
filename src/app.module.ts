@@ -6,6 +6,7 @@ import { ScheduleModule } from '@nestjs/schedule'
 import { ThrottlerModule } from '@nestjs/throttler'
 import { ZodSerializerInterceptor } from 'nestjs-zod'
 import { RemoveRefreshTokenCronjob } from './cronjobs/remove-refresh-token.cronjob'
+import { MilestoneStatusCronjob } from './cronjobs/milestone-status.cronjob'
 import { AuthModule } from './routes/auth/auth.module'
 
 import { UploadModule } from './routes/upload/upload.module'
@@ -67,6 +68,7 @@ import { SharedModule } from './shared/shared.module'
       useClass: ThrottlerBehindProxyGuard,
     },
     RemoveRefreshTokenCronjob,
+    MilestoneStatusCronjob,
     // {
     //   provide: APP_FILTER,//bắt và xử lý mọi exception trên toàn ứng dụng, lỗi chung chung
     //   useClass: CatchEverythingFilter

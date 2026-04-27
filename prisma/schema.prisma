@@ -117,14 +117,17 @@ model MilestoneUpdate {
   id          String          @id @default(auto()) @map("_id") @db.ObjectId
   milestoneId String  @unique @db.ObjectId
   milestone   Milestone @relation(fields: [milestoneId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  completed   String// Những việc đã làm
-  blockers   String // Những việc chưa làm
+  completed   String  // Những việc đã làm
+  blockers    String  // Những việc chưa làm
   images      String[]
-  demoUrl       String?
+  video       String
   link        String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  isLate      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
+
+
 
 model ProjectMember {
   id        String  @id @default(auto()) @map("_id") @db.ObjectId

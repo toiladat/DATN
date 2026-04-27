@@ -34,8 +34,9 @@ export const MilestoneUpdateSchema = z.object({
   completed: z.string(),
   blockers: z.string(),
   images: z.array(z.string()),
-  demoUrl: z.string().optional(),
-  link: z.string().optional(),
+  video: z.string(),
+  link: z.string().nullable().optional(),
+  isLate: z.boolean().optional(),
 })
 
 export const CreateMilestoneSchema = MilestoneSchema.strict()
@@ -88,6 +89,7 @@ export const MilestoneRestSchema = z.object({
   challenges: z.string().optional(),
   outcome: z.string().optional(),
   images: z.array(z.string()),
+  video: z.string().nullable().optional(),
   milestoneUpdates: MilestoneUpdateSchema.nullable(),
 })
 
@@ -131,11 +133,11 @@ export const ProjectDetailRestSchema = z.object({
 export const UpdateMilestoneProgressBodySchema = z.object({
   projectId: z.string().min(1, 'Project ID is required'),
   milestoneId: z.string().min(1, 'Milestone ID is required'),
-  completed: z.string().optional(),
-  notCompleted: z.string().optional(),
-  images: z.array(z.string()).optional(),
-  video: z.string().optional(),
-  link: z.string().optional(),
+  completed: z.string().min(1, 'Completed description is required'),
+  blockers: z.string().default(''),
+  images: z.array(z.string().url()).default([]),
+  video: z.string().url().optional(),
+  link: z.string().url().optional(),
 })
 
 export type CreateProjectBodyType = z.infer<typeof CreateProjectBodySchema>
