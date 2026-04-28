@@ -1,14 +1,17 @@
-import { Body, Controller, Post, Get, Delete, Param } from '@nestjs/common'
+import { Body, Controller, Post, Get, Delete, Param, Query } from '@nestjs/common'
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger'
 import { ProjectService } from './project.service'
 import {
   CreateProjectBodyDTO,
   CreateProjectRestDTO,
   ProjectSummaryRestDTO,
+  PaginatedProjectSummaryRestDTO,
   UpdateMilestoneProgressBodyDTO,
   ProjectDetailRestDTO,
 } from './project.dto'
+import { PaginationQueryDTO } from 'src/shared/dtos/pagination.dto'
 import { ActivateUser } from 'src/shared/decorators/activate-user.decorator'
+import { IsPublic } from 'src/shared/decorators/auth.decorator'
 import { ZodSerializerDto } from 'nestjs-zod'
 import { ApiResponse } from '@nestjs/swagger'
 import { MessageResDTO } from 'src/shared/dtos/response.dto'
@@ -34,6 +37,14 @@ export class ProjectController {
   @ZodSerializerDto(ProjectSummaryRestDTO)
   getMyProjects(@ActivateUser('userId') userId: string) {
     return this.projectService.getMyProjects(userId)
+  }
+
+  @Get()
+  @IsPublic()
+  @ApiResponse({ status: 200, type: PaginatedProjectSummaryRestDTO })
+  @ZodSerializerDto(PaginatedProjectSummaryRestDTO)
+  getAllProjects(@Query() query: PaginationQueryDTO) {
+    return this.projectService.getAllProjects(query.page, query.limit)
   }
 
   @Delete(':id')

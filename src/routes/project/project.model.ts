@@ -76,6 +76,13 @@ export const ProjectSummaryRestSchema = z.object({
     }),
   ),
 })
+export const PaginatedProjectSummaryRestSchema = ProjectSummaryRestSchema.extend({
+  total: z.number(),
+  page: z.number(),
+  limit: z.number(),
+  totalPages: z.number(),
+})
+
 export const MilestoneRestSchema = z.object({
   id: z.string(),
   order: z.number(),
@@ -143,4 +150,5 @@ export const UpdateMilestoneProgressBodySchema = z.object({
 export type CreateProjectBodyType = z.infer<typeof CreateProjectBodySchema>
 export type CreateProjectRestType = z.infer<typeof CreateProjectRestSchema>
 export type ProjectSummaryRestType = z.infer<typeof ProjectSummaryRestSchema>
+export type PaginatedProjectSummaryRestType = z.infer<typeof PaginatedProjectSummaryRestSchema>
 export type UpdateMilestoneProgressBodyType = z.infer<typeof UpdateMilestoneProgressBodySchema>

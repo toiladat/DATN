@@ -14,6 +14,10 @@ export class ProjectService {
     return this.projectRepo.getMyProjects(userId)
   }
 
+  async getAllProjects(page: number, limit: number) {
+    return this.projectRepo.getAllProjects(page, limit)
+  }
+
   async delete(id: string, userId: string) {
     return this.projectRepo.deleteProject(id, userId)
   }

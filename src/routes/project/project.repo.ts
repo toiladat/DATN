@@ -139,6 +139,71 @@ export class ProjectRepository {
     }
   }
 
+  async getAllProjects(page: number, limit: number) {
+    const whereCondition = {
+      status: {
+        not: PROJECT_STATUS.PENDING,
+      },
+      OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
+    }
+
+    const [total, projects] = await Promise.all([
+      this.prisma.project.count({ where: whereCondition }),
+      this.prisma.project.findMany({
+        where: whereCondition,
+        include: {
+          investments: true,
+          milestones: true,
+          projectCategories: {
+            include: { category: true },
+          },
+        },
+        orderBy: { updatedAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ])
+
+    return {
+      projects: projects.map((p) => {
+        const raisedAmount = p.investments.reduce((sum, inv) => {
+          return inv.status === INVESTMENT_STATUS.SUCCESS ? sum + inv.amount : sum
+        }, 0)
+
+        let mappedStatus = 'pending'
+        if (p.status === PROJECT_STATUS.PROGRESS) mappedStatus = 'progress'
+        else if (p.status === PROJECT_STATUS.ACTIVE) mappedStatus = 'active'
+        else if (p.status === PROJECT_STATUS.SUCCESS) mappedStatus = 'success'
+        else if (p.status === PROJECT_STATUS.FAILED || p.status === PROJECT_STATUS.EXPIRED) mappedStatus = 'rejected'
+
+        const primaryCat = p.projectCategories[0]?.category?.name || DEFAULT_CATEGORY_NAME
+
+        const totalMilestones = p.milestones.length
+        const completedMilestones = p.milestones.filter((m) => m.status === MILESTONE_STATUS.COMPLETED).length
+
+        return {
+          id: p.id,
+          title: p.title,
+          description: p.subtitle,
+          status: mappedStatus,
+          fundingGoal: p.totalAmount,
+          raisedAmount,
+          image: p.images[0] || null,
+          primaryCategory: primaryCat,
+          startDate: p.startDate.getTime(),
+          endDate: p.endDate.getTime(),
+          updatedAt: p.updatedAt.getTime(),
+          totalMilestones,
+          completedMilestones,
+        }
+      }),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    }
+  }
+
   async deleteProject(id: string, userId: string) {
     const project = await this.prisma.project.findFirst({
       where: {
