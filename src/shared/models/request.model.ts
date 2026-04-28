@@ -5,8 +5,9 @@ export const EmptyBodySchema = z.object({})
 export type EmptyBodyType = z.infer<typeof EmptyBodySchema>
 
 export const PaginationQuerySchema = z.object({
-  page: z.coerce.number().int().positive().default(1), // Phải thêm coerce để chuyển từ string sang number
-  limit: z.coerce.number().int().positive().default(10), // Phải thêm coerce để chuyển từ string sang number
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().default(10),
+  search: z.string().optional(),
 })
 
 export type PaginationQueryType = z.infer<typeof PaginationQuerySchema>

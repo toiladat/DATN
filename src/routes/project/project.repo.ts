@@ -139,12 +139,13 @@ export class ProjectRepository {
     }
   }
 
-  async getAllProjects(page: number, limit: number) {
+  async getAllProjects(page: number, limit: number, search?: string) {
     const whereCondition = {
       status: {
-        not: PROJECT_STATUS.PENDING,
+        in: [PROJECT_STATUS.ACTIVE, PROJECT_STATUS.PROGRESS],
       },
       OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
+      ...(search?.trim() ? { title: { contains: search.trim(), mode: 'insensitive' as const } } : {}),
     }
 
     const [total, projects] = await Promise.all([
