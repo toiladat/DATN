@@ -47,14 +47,22 @@ export class AuthRepository {
   findUniqueUserIncludeRole(
     uniqueObject: { email: string } | { id: string },
   ): Promise<(UserType & { role: RoleType }) | null> {
-    return this.prismaService.user.findUnique({
+    // email không còn @unique trong schema (dùng sparse index ở DB)
+    // → dùng findFirst thay vì findUnique
+    return this.prismaService.user.findFirst({
       where: uniqueObject,
       include: { role: true },
     })
   }
 
-  updateUser(where: { id: string } | { email: string }, data: Partial<UserUpdateType>): Promise<UserType> {
-    return this.prismaService.user.update({ where, data })
+  async updateUser(where: { id: string } | { email: string }, data: Partial<UserUpdateType>): Promise<UserType> {
+    if ('id' in where) {
+      return this.prismaService.user.update({ where: { id: where.id }, data })
+    }
+    // email không còn @unique trong Prisma schema → cần find trước rồi update by id
+    const user = await this.prismaService.user.findFirst({ where: { email: where.email } })
+    if (!user) throw new Error('User not found')
+    return this.prismaService.user.update({ where: { id: user.id }, data })
   }
 
   // ─── Wallet Auth ──────────────────────────────────────────────────────────────

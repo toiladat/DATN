@@ -57,6 +57,8 @@ export class ProjectController {
   }
 
   @Get(':id')
+  @IsPublic()
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
   @ApiResponse({ status: 200, type: ProjectDetailRestDTO })
   @ZodSerializerDto(ProjectDetailRestDTO)
   getProjectById(@Param('id') id: string) {

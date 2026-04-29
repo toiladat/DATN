@@ -177,7 +177,13 @@ export class ProjectRepository {
       this.prisma.project.findMany({
         where: whereCondition,
         include: {
-          investments: true,
+          investments: {
+            include: {
+              user: {
+                select: { avatar: true },
+              },
+            },
+          },
           milestones: true,
           projectCategories: {
             include: { category: true },
@@ -191,10 +197,6 @@ export class ProjectRepository {
 
     return {
       projects: projects.map((p) => {
-        const raisedAmount = p.investments.reduce((sum, inv) => {
-          return inv.status === INVESTMENT_STATUS.SUCCESS ? sum + inv.amount : sum
-        }, 0)
-
         let mappedStatus = 'pending'
         if (p.status === PROJECT_STATUS.PROGRESS) mappedStatus = 'progress'
         else if (p.status === PROJECT_STATUS.ACTIVE) mappedStatus = 'active'
@@ -206,15 +208,23 @@ export class ProjectRepository {
         const totalMilestones = p.milestones.length
         const completedMilestones = p.milestones.filter((m) => m.status === MILESTONE_STATUS.COMPLETED).length
 
+        const avatars = new Set<string>()
+        p.investments.forEach((inv: any) => {
+          if (inv.user?.avatar) avatars.add(inv.user.avatar)
+        })
+        const topInvestorsAvatars = Array.from(avatars).slice(0, 3)
+
         return {
           id: p.id,
           title: p.title,
           description: p.subtitle,
           status: mappedStatus,
           fundingGoal: p.totalAmount,
-          raisedAmount,
+          raisedAmount: p.raisedAmount,
           image: p.images[0] || null,
           primaryCategory: primaryCat,
+          investorsCount: p.investments.length,
+          topInvestorsAvatars,
           startDate: p.startDate.getTime(),
           endDate: p.endDate.getTime(),
           updatedAt: p.updatedAt.getTime(),
@@ -288,10 +298,6 @@ export class ProjectRepository {
 
     const { projectCategories, _count, investments, ...rest } = project
 
-    const raisedAmount = investments.reduce((sum, inv) => {
-      return inv.status === INVESTMENT_STATUS.SUCCESS ? sum + inv.amount : sum
-    }, 0)
-
     const topInvestors = [...investments]
       .filter((inv) => inv.status === INVESTMENT_STATUS.SUCCESS) // Consider only successful
       .sort((a, b) => b.amount - a.amount)
@@ -321,7 +327,6 @@ export class ProjectRepository {
         likes: _count.likes,
         reviews: _count.reviews,
       },
-      raisedAmount,
       topInvestors,
     }
   }
