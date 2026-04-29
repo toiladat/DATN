@@ -8,8 +8,8 @@ import {
   PaginatedProjectSummaryRestDTO,
   UpdateMilestoneProgressBodyDTO,
   ProjectDetailRestDTO,
+  ProjectQueryDTO,
 } from './project.dto'
-import { PaginationQueryDTO } from 'src/shared/dtos/pagination.dto'
 import { ActivateUser } from 'src/shared/decorators/activate-user.decorator'
 import { IsPublic } from 'src/shared/decorators/auth.decorator'
 import { ZodSerializerDto } from 'nestjs-zod'
@@ -44,8 +44,8 @@ export class ProjectController {
   @Throttle({ default: { limit: 30, ttl: 60000 } })
   @ApiResponse({ status: 200, type: PaginatedProjectSummaryRestDTO })
   @ZodSerializerDto(PaginatedProjectSummaryRestDTO)
-  getAllProjects(@Query() query: PaginationQueryDTO) {
-    return this.projectService.getAllProjects(query.page, query.limit, query.search)
+  getAllProjects(@Query() query: ProjectQueryDTO) {
+    return this.projectService.getAllProjects(query.page, query.limit, query.search, query.categorySlug)
   }
 
   @Delete(':id')

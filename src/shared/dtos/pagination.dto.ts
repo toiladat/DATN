@@ -6,9 +6,6 @@ export class PaginationQueryDTO extends createZodDto(PaginationQuerySchema) {
   @ApiProperty({ default: 1 })
   page: number
 
-  @ApiProperty({ default: 5 })
+  @ApiProperty({ default: 10 })
   limit: number
-
-  @ApiProperty({ required: false, description: 'Search by project title' })
-  search?: string
 }

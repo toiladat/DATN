@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { PaginationQuerySchema } from 'src/shared/models/request.model'
 
 export const ProjectBasicsSchema = z.object({
   title: z.string().min(1, 'Project Title is required'),
@@ -152,3 +153,10 @@ export type CreateProjectRestType = z.infer<typeof CreateProjectRestSchema>
 export type ProjectSummaryRestType = z.infer<typeof ProjectSummaryRestSchema>
 export type PaginatedProjectSummaryRestType = z.infer<typeof PaginatedProjectSummaryRestSchema>
 export type UpdateMilestoneProgressBodyType = z.infer<typeof UpdateMilestoneProgressBodySchema>
+
+// ─── Query schema cho project list (project-specific, không dùng shared) ─────
+export const ProjectQuerySchema = PaginationQuerySchema.extend({
+  search: z.string().optional(),
+  categorySlug: z.string().optional(),
+})
+export type ProjectQueryType = z.infer<typeof ProjectQuerySchema>
