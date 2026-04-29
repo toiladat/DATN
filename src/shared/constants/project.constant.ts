@@ -23,3 +23,11 @@ export const INVESTMENT_STATUS = {
 } as const
 
 export const DEFAULT_CATEGORY_NAME = 'Uncategorized'
+
+export const PROJECT_SORT = {
+  TRENDING: 'trending',
+  NEWEST: 'newest',
+  MOST_FUNDED: 'most_funded',
+} as const
+
+export type ProjectSortType = (typeof PROJECT_SORT)[keyof typeof PROJECT_SORT]

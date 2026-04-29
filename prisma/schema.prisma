@@ -73,8 +73,9 @@ model Project {
   location    String @default("")
   description String @default("")
   risks       String @default("")
-  totalAmount Float @default(0) 
-  status      ProjectStatus @default(PENDING)
+  totalAmount  Float @default(0)
+  raisedAmount Float @default(0)
+  status       ProjectStatus @default(PENDING)
   startDate   DateTime
   endDate     DateTime
 

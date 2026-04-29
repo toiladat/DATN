@@ -7,6 +7,8 @@ import {
   PROJECT_STATUS,
   DEFAULT_CATEGORY_NAME,
   MILESTONE_STATUS,
+  PROJECT_SORT,
+  ProjectSortType,
 } from 'src/shared/constants/project.constant'
 import {
   ProjectNotFoundException,
@@ -139,7 +141,13 @@ export class ProjectRepository {
     }
   }
 
-  async getAllProjects(page: number, limit: number, search?: string, categorySlug?: string) {
+  async getAllProjects(
+    page: number,
+    limit: number,
+    search?: string,
+    categorySlug?: string,
+    sort: ProjectSortType = PROJECT_SORT.NEWEST,
+  ) {
     const whereCondition = {
       status: {
         in: [PROJECT_STATUS.ACTIVE, PROJECT_STATUS.PROGRESS],
@@ -157,6 +165,13 @@ export class ProjectRepository {
         : {}),
     }
 
+    const orderBy =
+      sort === PROJECT_SORT.MOST_FUNDED
+        ? { raisedAmount: 'desc' as const }
+        : sort === PROJECT_SORT.TRENDING
+          ? { investments: { _count: 'desc' as const } }
+          : { createdAt: 'desc' as const } // NEWEST (default)
+
     const [total, projects] = await Promise.all([
       this.prisma.project.count({ where: whereCondition }),
       this.prisma.project.findMany({
@@ -168,7 +183,7 @@ export class ProjectRepository {
             include: { category: true },
           },
         },
-        orderBy: { updatedAt: 'desc' },
+        orderBy,
         skip: (page - 1) * limit,
         take: limit,
       }),

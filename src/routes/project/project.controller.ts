@@ -45,7 +45,7 @@ export class ProjectController {
   @ApiResponse({ status: 200, type: PaginatedProjectSummaryRestDTO })
   @ZodSerializerDto(PaginatedProjectSummaryRestDTO)
   getAllProjects(@Query() query: ProjectQueryDTO) {
-    return this.projectService.getAllProjects(query.page, query.limit, query.search, query.categorySlug)
+    return this.projectService.getAllProjects(query.page, query.limit, query.search, query.categorySlug, query.sort)
   }
 
   @Delete(':id')

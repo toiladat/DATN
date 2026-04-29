@@ -1,5 +1,6 @@
 import { createZodDto } from 'nestjs-zod'
 import { ApiProperty } from '@nestjs/swagger'
+import { PROJECT_SORT, ProjectSortType } from 'src/shared/constants/project.constant'
 import {
   CreateProjectBodySchema,
   CreateProjectRestSchema,
@@ -29,4 +30,12 @@ export class ProjectQueryDTO extends createZodDto(ProjectQuerySchema) {
 
   @ApiProperty({ required: false, description: 'Filter by category slug' })
   categorySlug?: string
+
+  @ApiProperty({
+    required: false,
+    enum: Object.values(PROJECT_SORT),
+    default: PROJECT_SORT.TRENDING,
+    description: 'Sort order',
+  })
+  sort: ProjectSortType // không dùng ? vì Zod .default() luôn cung cấp giá trị
 }
