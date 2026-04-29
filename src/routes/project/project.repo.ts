@@ -96,8 +96,11 @@ export class ProjectRepository {
         OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
       },
       include: {
-        investments: true,
+        investments: {
+          include: { user: { select: { avatar: true } } },
+        },
         milestones: true,
+        likes: true,
         projectCategories: {
           include: { category: true },
         },
@@ -122,6 +125,12 @@ export class ProjectRepository {
         const totalMilestones = p.milestones.length
         const completedMilestones = p.milestones.filter((m) => m.status === MILESTONE_STATUS.COMPLETED).length
 
+        const avatars = new Set<string>()
+        p.investments.forEach((inv: any) => {
+          if (inv.user?.avatar) avatars.add(inv.user.avatar)
+        })
+        const topInvestorsAvatars = Array.from(avatars).slice(0, 3)
+
         return {
           id: p.id,
           title: p.title,
@@ -131,6 +140,10 @@ export class ProjectRepository {
           raisedAmount,
           image: p.images[0] || null,
           primaryCategory: primaryCat,
+          investorsCount: p.investments.length,
+          topInvestorsAvatars,
+          likesCount: p.likes.length,
+          isLiked: p.likes.some((l) => l.userId === userId),
           startDate: p.startDate.getTime(),
           endDate: p.endDate.getTime(),
           updatedAt: p.updatedAt.getTime(),
@@ -147,6 +160,7 @@ export class ProjectRepository {
     search?: string,
     categorySlug?: string,
     sort: ProjectSortType = PROJECT_SORT.NEWEST,
+    userId?: string,
   ) {
     const whereCondition = {
       status: {
@@ -185,6 +199,7 @@ export class ProjectRepository {
             },
           },
           milestones: true,
+          likes: true,
           projectCategories: {
             include: { category: true },
           },
@@ -225,6 +240,8 @@ export class ProjectRepository {
           primaryCategory: primaryCat,
           investorsCount: p.investments.length,
           topInvestorsAvatars,
+          likesCount: p.likes.length,
+          isLiked: userId ? p.likes.some((l) => l.userId === userId) : false,
           startDate: p.startDate.getTime(),
           endDate: p.endDate.getTime(),
           updatedAt: p.updatedAt.getTime(),
@@ -413,6 +430,24 @@ export class ProjectRepository {
         link: payload.link ?? null,
         isLate,
       },
+    })
+  }
+  async likeProject(projectId: string, userId: string) {
+    const existingLike = await this.prisma.like.findUnique({
+      where: {
+        projectId_userId: { projectId, userId },
+      },
+    })
+    if (!existingLike) {
+      await this.prisma.like.create({
+        data: { projectId, userId },
+      })
+    }
+  }
+
+  async unlikeProject(projectId: string, userId: string) {
+    await this.prisma.like.deleteMany({
+      where: { projectId, userId },
     })
   }
 }

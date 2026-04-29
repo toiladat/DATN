@@ -14,8 +14,15 @@ export class ProjectService {
     return this.projectRepo.getMyProjects(userId)
   }
 
-  async getAllProjects(page: number, limit: number, search?: string, categorySlug?: string, sort?: string) {
-    return this.projectRepo.getAllProjects(page, limit, search, categorySlug, sort as any)
+  async getAllProjects(
+    page: number,
+    limit: number,
+    search?: string,
+    categorySlug?: string,
+    sort?: string,
+    userId?: string,
+  ) {
+    return this.projectRepo.getAllProjects(page, limit, search, categorySlug, sort as any, userId)
   }
 
   async delete(id: string, userId: string) {
@@ -28,5 +35,13 @@ export class ProjectService {
 
   async updateMilestone(userId: string, payload: UpdateMilestoneProgressBodyType) {
     return this.projectRepo.updateMilestoneProgress(userId, payload)
+  }
+
+  async likeProject(id: string, userId: string) {
+    return this.projectRepo.likeProject(id, userId)
+  }
+
+  async unlikeProject(id: string, userId: string) {
+    return this.projectRepo.unlikeProject(id, userId)
   }
 }

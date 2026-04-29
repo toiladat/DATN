@@ -44,8 +44,15 @@ export class ProjectController {
   @Throttle({ default: { limit: 30, ttl: 60000 } })
   @ApiResponse({ status: 200, type: PaginatedProjectSummaryRestDTO })
   @ZodSerializerDto(PaginatedProjectSummaryRestDTO)
-  getAllProjects(@Query() query: ProjectQueryDTO) {
-    return this.projectService.getAllProjects(query.page, query.limit, query.search, query.categorySlug, query.sort)
+  getAllProjects(@Query() query: ProjectQueryDTO, @ActivateUser('userId') userId?: string) {
+    return this.projectService.getAllProjects(
+      query.page,
+      query.limit,
+      query.search,
+      query.categorySlug,
+      query.sort,
+      userId,
+    )
   }
 
   @Delete(':id')
@@ -74,5 +81,21 @@ export class ProjectController {
   ) {
     await this.projectService.updateMilestone(userId, payload)
     return { message: 'Milestone progress updated successfully' }
+  }
+
+  @Post(':id/like')
+  @ApiResponse({ status: 200, type: MessageResDTO })
+  @ZodSerializerDto(MessageResDTO)
+  async likeProject(@Param('id') id: string, @ActivateUser('userId') userId: string) {
+    await this.projectService.likeProject(id, userId)
+    return { message: 'Project liked successfully' }
+  }
+
+  @Delete(':id/like')
+  @ApiResponse({ status: 200, type: MessageResDTO })
+  @ZodSerializerDto(MessageResDTO)
+  async unlikeProject(@Param('id') id: string, @ActivateUser('userId') userId: string) {
+    await this.projectService.unlikeProject(id, userId)
+    return { message: 'Project unliked successfully' }
   }
 }
