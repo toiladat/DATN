@@ -44,4 +44,20 @@ export class ProjectService {
   async unlikeProject(id: string, userId: string) {
     return this.projectRepo.unlikeProject(id, userId)
   }
+
+  async getReviews(projectId: string) {
+    return this.projectRepo.getReviews(projectId)
+  }
+
+  async createReview(userId: string, projectId: string, content: string, parentId?: string) {
+    return this.projectRepo.createReview(userId, projectId, content, parentId)
+  }
+
+  async updateReview(userId: string, reviewId: string, content: string) {
+    return this.projectRepo.updateReview(userId, reviewId, content)
+  }
+
+  async deleteReview(userId: string, reviewId: string) {
+    return this.projectRepo.deleteReview(userId, reviewId)
+  }
 }

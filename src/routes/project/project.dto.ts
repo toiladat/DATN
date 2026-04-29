@@ -9,6 +9,9 @@ import {
   UpdateMilestoneProgressBodySchema,
   ProjectDetailRestSchema,
   ProjectQuerySchema,
+  CreateReviewBodySchema,
+  UpdateReviewBodySchema,
+  ReviewRestSchema,
 } from './project.model'
 
 export class CreateProjectBodyDTO extends createZodDto(CreateProjectBodySchema) {}
@@ -39,3 +42,7 @@ export class ProjectQueryDTO extends createZodDto(ProjectQuerySchema) {
   })
   sort: ProjectSortType // không dùng ? vì Zod .default() luôn cung cấp giá trị
 }
+
+export class CreateReviewBodyDTO extends createZodDto(CreateReviewBodySchema) {}
+export class UpdateReviewBodyDTO extends createZodDto(UpdateReviewBodySchema) {}
+export class ReviewRestDTO extends createZodDto(ReviewRestSchema) {}

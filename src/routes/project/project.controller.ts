@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Get, Delete, Param, Query } from '@nestjs/common'
+import { Body, Controller, Post, Get, Delete, Param, Query, Put } from '@nestjs/common'
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger'
 import { ProjectService } from './project.service'
 import {
@@ -9,6 +9,8 @@ import {
   UpdateMilestoneProgressBodyDTO,
   ProjectDetailRestDTO,
   ProjectQueryDTO,
+  CreateReviewBodyDTO,
+  UpdateReviewBodyDTO,
 } from './project.dto'
 import { ActivateUser } from 'src/shared/decorators/activate-user.decorator'
 import { IsPublic } from 'src/shared/decorators/auth.decorator'
@@ -97,5 +99,36 @@ export class ProjectController {
   async unlikeProject(@Param('id') id: string, @ActivateUser('userId') userId: string) {
     await this.projectService.unlikeProject(id, userId)
     return { message: 'Project unliked successfully' }
+  }
+
+  // --- REVIEWS ---
+
+  @Get(':id/reviews')
+  @IsPublic()
+  @ApiResponse({ status: 200 })
+  getReviews(@Param('id') id: string) {
+    return this.projectService.getReviews(id)
+  }
+
+  @Post(':id/reviews')
+  @ApiResponse({ status: 201 })
+  createReview(@Param('id') id: string, @Body() body: CreateReviewBodyDTO, @ActivateUser('userId') userId: string) {
+    return this.projectService.createReview(userId, id, body.content, body.parentId)
+  }
+
+  @Put(':id/reviews/:reviewId')
+  @ApiResponse({ status: 200 })
+  updateReview(
+    @Param('reviewId') reviewId: string,
+    @Body() body: UpdateReviewBodyDTO,
+    @ActivateUser('userId') userId: string,
+  ) {
+    return this.projectService.updateReview(userId, reviewId, body.content)
+  }
+
+  @Delete(':id/reviews/:reviewId')
+  @ApiResponse({ status: 200 })
+  deleteReview(@Param('reviewId') reviewId: string, @ActivateUser('userId') userId: string) {
+    return this.projectService.deleteReview(userId, reviewId)
   }
 }

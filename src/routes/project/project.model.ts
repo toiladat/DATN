@@ -168,3 +168,31 @@ export const ProjectQuerySchema = PaginationQuerySchema.extend({
   sort: z.enum(SORT_VALUES).default(PROJECT_SORT.TRENDING),
 })
 export type ProjectQueryType = z.infer<typeof ProjectQuerySchema>
+
+export const UserBasicInfoSchema = z.object({
+  id: z.string(),
+  name: z.string().nullable().optional(),
+  avatar: z.string().nullable().optional(),
+  walletAddress: z.string(),
+})
+
+export const ReviewRestSchema: z.ZodType<any> = z.lazy(() =>
+  z.object({
+    id: z.string(),
+    content: z.string(),
+    projectId: z.string(),
+    userId: z.string(),
+    createdAt: z.number(),
+    user: UserBasicInfoSchema.optional(),
+    replies: z.array(ReviewRestSchema).optional(),
+  }),
+)
+
+export const CreateReviewBodySchema = z.object({
+  content: z.string().min(1, 'Content is required'),
+  parentId: z.string().optional(),
+})
+
+export const UpdateReviewBodySchema = z.object({
+  content: z.string().min(1, 'Content is required'),
+})

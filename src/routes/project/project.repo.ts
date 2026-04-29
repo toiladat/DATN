@@ -450,4 +450,82 @@ export class ProjectRepository {
       where: { projectId, userId },
     })
   }
+
+  async getReviews(projectId: string) {
+    const reviews = await this.prisma.review.findMany({
+      where: {
+        projectId,
+        // In MongoDB, parentId can be null OR absent (field not set at all)
+        // Prisma `{ parentId: null }` only matches explicit null, not missing fields
+        OR: [{ parentId: null }, { parentId: { isSet: false } }],
+      },
+      include: {
+        user: {
+          select: { id: true, name: true, avatar: true, walletAddress: true },
+        },
+        replies: {
+          include: {
+            user: {
+              select: { id: true, name: true, avatar: true, walletAddress: true },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    return reviews.map((r) => ({
+      ...r,
+      createdAt: r.createdAt.getTime(),
+      replies: r.replies.map((reply: any) => ({
+        ...reply,
+        createdAt: reply.createdAt.getTime(),
+      })),
+    }))
+  }
+
+  async createReview(userId: string, projectId: string, content: string, parentId?: string) {
+    const review = await this.prisma.review.create({
+      data: {
+        userId,
+        projectId,
+        content,
+        // Normalize to null (not undefined) so Prisma/MongoDB stores explicit null
+        // This prevents the "absent field" vs null mismatch in future queries
+        parentId: parentId ?? null,
+      },
+      include: {
+        user: { select: { id: true, name: true, avatar: true, walletAddress: true } },
+      },
+    })
+    return { ...review, createdAt: review.createdAt.getTime(), replies: [] }
+  }
+
+  async updateReview(userId: string, reviewId: string, content: string) {
+    const review = await this.prisma.review.findFirst({ where: { id: reviewId } })
+    if (!review) throw new Error('Review not found')
+    if (review.userId !== userId) throw new Error('Unauthorized')
+
+    const updated = await this.prisma.review.update({
+      where: { id: reviewId },
+      data: { content },
+    })
+    return { ...updated, createdAt: updated.createdAt.getTime() }
+  }
+
+  async deleteReview(userId: string, reviewId: string) {
+    const review = await this.prisma.review.findFirst({ where: { id: reviewId } })
+    if (!review) throw new Error('Review not found')
+    if (review.userId !== userId) throw new Error('Unauthorized')
+
+    // Cascade delete replies first
+    await this.prisma.review.deleteMany({
+      where: { parentId: reviewId },
+    })
+
+    return this.prisma.review.delete({
+      where: { id: reviewId },
+    })
+  }
 }
