@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { UserProfileType } from 'src/shared/models/shared-user.model'
 import { PrismaService } from 'src/shared/services/prisma.service'
-import { SearchUserQueryParamsType } from './user.model'
+import { SearchUserQueryParamsType, UpdateUserProfileType } from './user.model'
 @Injectable()
 export class UserRepo {
   constructor(private prismaService: PrismaService) {}
@@ -41,5 +41,12 @@ export class UserRepo {
       take: 5,
     })
     return users
+  }
+
+  async updateProfile(id: string, data: UpdateUserProfileType): Promise<UserProfileType> {
+    return this.prismaService.user.update({
+      where: { id },
+      data,
+    })
   }
 }

@@ -8,6 +8,8 @@ import {
   UserResSchema,
   WalletLoginBodySchema,
   WalletLoginResSchema,
+  RequestVerificationBodySchema,
+  VerifyEmailBodySchema,
 } from './auth.model'
 
 // Session DTOs
@@ -23,3 +25,6 @@ export class GetNonceQueryDTO extends createZodDto(GetNonceQuerySchema) {}
 export class GetNonceResDTO extends createZodDto(GetNonceResSchema) {}
 export class WalletLoginBodyDTO extends createZodDto(WalletLoginBodySchema) {}
 export class WalletLoginResDTO extends createZodDto(WalletLoginResSchema) {}
+
+export class RequestVerificationBodyDTO extends createZodDto(RequestVerificationBodySchema) {}
+export class VerifyEmailBodyDTO extends createZodDto(VerifyEmailBodySchema) {}

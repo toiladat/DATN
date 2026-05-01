@@ -16,4 +16,17 @@ export class SharedUserRepository {
       },
     })
   }
+
+  findById(id: string): Promise<UserType | null> {
+    return this.prismaService.user.findUnique({
+      where: { id },
+    })
+  }
+
+  updateProfile(id: string, data: any): Promise<UserType> {
+    return this.prismaService.user.update({
+      where: { id },
+      data,
+    })
+  }
 }

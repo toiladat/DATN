@@ -15,6 +15,7 @@ export const ConditionGuard = {
 export type ConditionGuardType = (typeof ConditionGuard)[keyof typeof ConditionGuard]
 
 export const UserStatus = {
+  KYC_PENDING: 'KYC_PENDING',
   ACTIVE: 'ACTIVE',
   INACTIVE: 'INACTIVE',
   BLOCKED: 'BLOCKED',

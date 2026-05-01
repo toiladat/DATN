@@ -2,7 +2,9 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Ip, Post, Query } from '@n
 import { ZodSerializerDto } from 'nestjs-zod'
 import { IsPublic } from 'src/shared/decorators/auth.decorator'
 import { MessageResDTO } from 'src/shared/dtos/response.dto'
-import { UserAgent } from './../../shared/decorators/user-agent.decorator'
+import { ActivateUser } from 'src/shared/decorators/activate-user.decorator'
+import { UserAgent } from 'src/shared/decorators/user-agent.decorator'
+import { ApiBearerAuth } from '@nestjs/swagger'
 import {
   RefreshTokenBodyDTO,
   RefreshTokenResDTO,
@@ -10,6 +12,8 @@ import {
   GetNonceResDTO,
   WalletLoginBodyDTO,
   WalletLoginResDTO,
+  RequestVerificationBodyDTO,
+  VerifyEmailBodyDTO,
 } from './auth.dto'
 import { AuthService } from './auth.service'
 
@@ -53,5 +57,19 @@ export class AuthController {
       userAgent,
       ip,
     })
+  }
+
+  // ─── Email Verification ──────────────────────────────────────────────────────
+
+  @Post('request-verification')
+  @ApiBearerAuth()
+  requestEmailVerification(@Body() body: RequestVerificationBodyDTO, @ActivateUser('userId') userId: string) {
+    return this.authService.requestEmailVerification(userId, body.email)
+  }
+
+  @Post('verify-email')
+  @ApiBearerAuth()
+  verifyEmail(@Body() body: VerifyEmailBodyDTO, @ActivateUser('userId') userId: string) {
+    return this.authService.verifyEmail(userId, body.email, body.code)
   }
 }

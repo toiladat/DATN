@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { UserRepo } from 'src/routes/user/user.repo'
 import { NotFoundRecordException } from 'src/shared/error'
-import { SearchUserQueryParamsType } from './user.model'
+import { SearchUserQueryParamsType, UpdateUserProfileType } from './user.model'
 
 @Injectable()
 export class UserService {
@@ -17,5 +17,13 @@ export class UserService {
 
   async search(query: SearchUserQueryParamsType) {
     return { users: await this.userRepo.search(query) }
+  }
+
+  async updateProfile(id: string, data: UpdateUserProfileType) {
+    const user = await this.userRepo.findById(id)
+    if (!user) {
+      throw NotFoundRecordException
+    }
+    return this.userRepo.updateProfile(id, data)
   }
 }

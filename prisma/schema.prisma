@@ -11,12 +11,16 @@ model User {
   id          String  @id @default(auto()) @map("_id") @db.ObjectId
   email       String?
   name        String?
+  biography   String?
   phoneNumber String?
   avatar      String?
+  location    String?
+  socialLinks String[] // [facebook,twitter,telegram,youtube,linkedin]
+  website     String?
 
   walletAddress String @unique
 
-  status        UserStatus     @default(ACTIVE)
+  status        UserStatus     @default(KYC_PENDING)
   roleId        String         @db.ObjectId
   role          Role           @relation(fields: [roleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   refreshTokens RefreshToken[]
@@ -306,6 +310,7 @@ enum VerificationCodeType {
 }
 
 enum UserStatus {
+  KYC_PENDING
   ACTIVE
   INACTIVE
   BLOCKED

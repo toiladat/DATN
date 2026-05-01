@@ -88,3 +88,14 @@ export type GetNonceQueryType = z.infer<typeof GetNonceQuerySchema>
 export type GetNonceResType = z.infer<typeof GetNonceResSchema>
 export type WalletLoginBodyType = z.infer<typeof WalletLoginBodySchema>
 export type WalletLoginResType = z.infer<typeof WalletLoginResSchema>
+
+export const RequestVerificationBodySchema = z.object({
+  email: z.string().email(),
+})
+export type RequestVerificationBodyType = z.infer<typeof RequestVerificationBodySchema>
+
+export const VerifyEmailBodySchema = z.object({
+  email: z.string().email(),
+  code: z.string().length(6),
+})
+export type VerifyEmailBodyType = z.infer<typeof VerifyEmailBodySchema>

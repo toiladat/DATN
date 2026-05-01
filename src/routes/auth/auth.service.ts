@@ -164,4 +164,44 @@ export class AuthService {
       roleName: user.role.name,
     })
   }
+
+  // ─── Email Verification (KYC) ───────────────────────────────────────────────
+
+  async requestEmailVerification(userId: string, email: string) {
+    const user = await this.sharedUserRepository.findById(userId)
+    if (!user) throw UnauthorizedAccessException
+    if (user.status === 'ACTIVE') return { message: 'Already verified' }
+
+    // Generate a 6-digit OTP
+    const code = Math.floor(100000 + Math.random() * 900000).toString()
+
+    // Store in Redis with 15 mins expiration (using VERIFY_EMAIL concept)
+    await this.redisClient.set(`email_verification:${email}`, code, 'EX', 900)
+
+    // TODO: Send actual email via this.emailService
+    console.log(`[MOCK EMAIL] To: ${email} - Your verification code is: ${code}`)
+
+    return { message: 'Verification code sent' }
+  }
+
+  async verifyEmail(userId: string, email: string, code: string) {
+    const user = await this.sharedUserRepository.findById(userId)
+    if (!user) throw UnauthorizedAccessException
+
+    const storedCode = await this.redisClient.get(`email_verification:${email}`)
+    if (!storedCode || storedCode !== code) {
+      throw new HttpException('Invalid or expired verification code', 400)
+    }
+
+    // Update user status and email
+    await this.sharedUserRepository.updateProfile(userId, {
+      status: 'ACTIVE',
+      email: email,
+    })
+
+    // Delete used code
+    await this.redisClient.del(`email_verification:${email}`)
+
+    return { message: 'Email verified successfully', status: 'ACTIVE' }
+  }
 }
