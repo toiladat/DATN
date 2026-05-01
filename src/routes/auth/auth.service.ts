@@ -1,6 +1,7 @@
 import { HttpException, Inject, Injectable } from '@nestjs/common'
 import { verifyMessage } from 'ethers'
 import {
+  EmailAlreadyInUseException,
   InvalidWalletSignatureException,
   RefreshTokenAlreadyUsedException,
   UnauthorizedAccessException,
@@ -172,14 +173,20 @@ export class AuthService {
     if (!user) throw UnauthorizedAccessException
     if (user.status === 'ACTIVE') return { message: 'Already verified' }
 
+    // Check if email is already in use by someone else
+    const existingEmail = await this.sharedUserRepository.findUnique({ email })
+    if (existingEmail && existingEmail.id !== userId) {
+      throw EmailAlreadyInUseException
+    }
     // Generate a 6-digit OTP
     const code = Math.floor(100000 + Math.random() * 900000).toString()
 
     // Store in Redis with 15 mins expiration (using VERIFY_EMAIL concept)
     await this.redisClient.set(`email_verification:${email}`, code, 'EX', 900)
 
-    // TODO: Send actual email via this.emailService
-    console.log(`[MOCK EMAIL] To: ${email} - Your verification code is: ${code}`)
+    // Send actual email via this.emailService
+    await this.emailService.sendOTP({ email, code })
+    console.log(`[EMAIL SENT] To: ${email} - Verification code is: ${code}`)
 
     return { message: 'Verification code sent' }
   }
@@ -191,6 +198,12 @@ export class AuthService {
     const storedCode = await this.redisClient.get(`email_verification:${email}`)
     if (!storedCode || storedCode !== code) {
       throw new HttpException('Invalid or expired verification code', 400)
+    }
+
+    // Double-check to prevent race conditions during verification
+    const existingEmail = await this.sharedUserRepository.findUnique({ email })
+    if (existingEmail && existingEmail.id !== userId) {
+      throw EmailAlreadyInUseException
     }
 
     // Update user status and email

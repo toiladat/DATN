@@ -25,3 +25,11 @@ export const WalletNonceNotFoundException = new UnprocessableEntityException([
     path: 'walletAddress',
   },
 ])
+
+// KYC related errors
+export const EmailAlreadyInUseException = new UnprocessableEntityException([
+  {
+    message: 'Error.EmailAlreadyInUse',
+    path: 'email',
+  },
+])

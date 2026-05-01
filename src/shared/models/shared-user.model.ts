@@ -32,7 +32,6 @@ export const UserProfileSchema = UserSchema.omit({
   deletedAt: true,
   createdAt: true,
   updatedAt: true,
-  status: true,
 })
 
 export type UserType = z.infer<typeof UserSchema>
