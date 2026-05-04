@@ -10,6 +10,16 @@ export class ProjectService {
     return this.projectRepo.createProject(ownerId, data)
   }
 
+  async approveProject(projectId: string) {
+    await this.projectRepo.approveProject(projectId)
+    return { message: 'Project approved successfully' }
+  }
+
+  async submitLaunchTx(projectId: string, txHash: string) {
+    await this.projectRepo.submitLaunchTx(projectId, txHash)
+    return { message: 'Launch transaction submitted' }
+  }
+
   async getMyProjects(userId: string) {
     return this.projectRepo.getMyProjects(userId)
   }
@@ -35,6 +45,10 @@ export class ProjectService {
 
   async updateMilestone(userId: string, payload: UpdateMilestoneProgressBodyType) {
     return this.projectRepo.updateMilestoneProgress(userId, payload)
+  }
+
+  async invest(projectId: string, userId: string, amount: number, txHash: string, content?: string) {
+    return this.projectRepo.createInvestment(projectId, userId, amount, txHash, content)
   }
 
   async likeProject(id: string, userId: string) {

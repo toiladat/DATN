@@ -1,10 +1,11 @@
 export const PROJECT_STATUS = {
-  PENDING: 'PENDING',
-  PROGRESS: 'PROGRESS',
-  EXPIRED: 'EXPIRED',
-  ACTIVE: 'ACTIVE',
-  FAILED: 'FAILED',
-  SUCCESS: 'SUCCESS',
+  PENDING: 'PENDING', // chờ duyệt
+  APPROVED: 'APPROVED', // đã được duyệt
+  PROGRESS: 'PROGRESS', // đang gây quỹ
+  EXPIRED: 'EXPIRED', // hết đến startDate và không đủ quỹ
+  ACTIVE: 'ACTIVE', // đã  đủ quỹ và thực hiện milestones
+  FAILED: 'FAILED', // thất bại
+  SUCCESS: 'SUCCESS', // thành công
 } as const
 
 export const MILESTONE_STATUS = {

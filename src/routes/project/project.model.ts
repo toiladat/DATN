@@ -135,6 +135,17 @@ export const ProjectDetailRestSchema = z.object({
       amount: z.number(),
       name: z.string().optional(),
       avatar: z.string().optional(),
+      content: z.string().nullable().optional(),
+      createdAt: z.date().optional(),
+    }),
+  ),
+  recentInvestors: z.array(
+    z.object({
+      amount: z.number(),
+      name: z.string().optional(),
+      avatar: z.string().optional(),
+      content: z.string().nullable().optional(),
+      createdAt: z.date().optional(),
     }),
   ),
   milestones: z.array(MilestoneRestSchema),
@@ -196,3 +207,9 @@ export const CreateReviewBodySchema = z.object({
 export const UpdateReviewBodySchema = z.object({
   content: z.string().min(1, 'Content is required'),
 })
+export const InvestBodySchema = z.object({
+  amount: z.number().positive(),
+  txHash: z.string().min(1),
+  content: z.string().max(200).optional(),
+})
+export type InvestBodyType = z.infer<typeof InvestBodySchema>

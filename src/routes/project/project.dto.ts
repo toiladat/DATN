@@ -12,6 +12,7 @@ import {
   CreateReviewBodySchema,
   UpdateReviewBodySchema,
   ReviewRestSchema,
+  InvestBodySchema,
 } from './project.model'
 
 export class CreateProjectBodyDTO extends createZodDto(CreateProjectBodySchema) {}
@@ -46,3 +47,5 @@ export class ProjectQueryDTO extends createZodDto(ProjectQuerySchema) {
 export class CreateReviewBodyDTO extends createZodDto(CreateReviewBodySchema) {}
 export class UpdateReviewBodyDTO extends createZodDto(UpdateReviewBodySchema) {}
 export class ReviewRestDTO extends createZodDto(ReviewRestSchema) {}
+
+export class InvestBodyDTO extends createZodDto(InvestBodySchema) {}

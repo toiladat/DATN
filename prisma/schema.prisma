@@ -79,6 +79,7 @@ model Project {
   risks       String @default("")
   totalAmount  Float @default(0)
   raisedAmount Float @default(0)
+  launchTxHash String? // txHash khi đưa dự án lên chuỗi
   status       ProjectStatus @default(PENDING)
   startDate   DateTime
   endDate     DateTime
@@ -144,10 +145,11 @@ model ProjectMember {
 }
 
 model Investment {
-  id     String           @id @default(auto()) @map("_id") @db.ObjectId
-  amount Float @default(0) 
-  txHash String?          @unique // Mã giao dịch on-chain
-  status InvestmentStatus @default(PENDING)
+  id      String           @id @default(auto()) @map("_id") @db.ObjectId
+  amount  Float @default(0) 
+  content String?          // Lời nhắn động viên
+  txHash  String?          @unique // Mã giao dịch on-chain
+  status  InvestmentStatus @default(PENDING)
 
   userId    String  @db.ObjectId
   user      User    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -344,9 +346,10 @@ enum MilestoneStatus {
 
 enum ProjectStatus {
   PENDING   // chờ duyệt
-  PROGRESS  // đang gây quỹ
+  APPROVED  // đã được admin duyệt, chờ đẩy lên chuỗi
+  PROGRESS  // đang gây quỹ (đã lên chuỗi)
   EXPIRED   // hết đến startDate và không đủ quỹ
-  ACTIVE    // đã  đủ quỹ và thực hiện milestones
+  ACTIVE    // đã đủ quỹ và thực hiện milestones
   FAILED    // thất bại
   SUCCESS   // thành công
 }

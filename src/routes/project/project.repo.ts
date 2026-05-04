@@ -89,6 +89,20 @@ export class ProjectRepository {
     })
   }
 
+  async approveProject(projectId: string) {
+    return this.prisma.project.update({
+      where: { id: projectId },
+      data: { status: 'APPROVED' },
+    })
+  }
+
+  async submitLaunchTx(projectId: string, txHash: string) {
+    return this.prisma.project.update({
+      where: { id: projectId },
+      data: { launchTxHash: txHash },
+    })
+  }
+
   async getMyProjects(userId: string) {
     const projects = await this.prisma.project.findMany({
       where: {
@@ -315,14 +329,28 @@ export class ProjectRepository {
 
     const { projectCategories, _count, investments, ...rest } = project
 
-    const topInvestors = [...investments]
-      .filter((inv) => inv.status === INVESTMENT_STATUS.SUCCESS) // Consider only successful
+    const successfulInvestments = investments.filter((inv) => inv.status === INVESTMENT_STATUS.SUCCESS)
+
+    const topInvestors = [...successfulInvestments]
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5)
       .map((inv) => ({
         amount: inv.amount,
         name: inv.user?.name,
         avatar: inv.user?.avatar,
+        content: inv.content,
+        createdAt: inv.createdAt,
+      }))
+
+    const recentInvestors = [...successfulInvestments]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, 5)
+      .map((inv) => ({
+        amount: inv.amount,
+        name: inv.user?.name,
+        avatar: inv.user?.avatar,
+        content: inv.content,
+        createdAt: inv.createdAt,
       }))
 
     const STATUS_MAP: Record<string, string> = {
@@ -345,6 +373,7 @@ export class ProjectRepository {
         reviews: _count.reviews,
       },
       topInvestors,
+      recentInvestors,
     }
   }
 
@@ -432,6 +461,62 @@ export class ProjectRepository {
       },
     })
   }
+
+  async createInvestment(projectId: string, userId: string, amount: number, txHash: string, content?: string) {
+    const project = await this.prisma.project.findUnique({ where: { id: projectId } })
+    if (!project) throw ProjectNotFoundException
+
+    return this.prisma.investment.create({
+      data: {
+        projectId,
+        userId,
+        amount,
+        txHash,
+        content: content || null,
+        status: INVESTMENT_STATUS.PENDING,
+      },
+    })
+  }
+
+  async updateInvestmentStatus(txHash: string, status: 'SUCCESS' | 'FAILED') {
+    return this.prisma.$transaction(async (tx) => {
+      const investment = await tx.investment.findUnique({
+        where: { txHash },
+      })
+
+      if (!investment) return null
+      if (investment.status !== INVESTMENT_STATUS.PENDING) return investment
+
+      // Cập nhật trạng thái Investment
+      const updatedInvestment = await tx.investment.update({
+        where: { id: investment.id },
+        data: { status },
+      })
+
+      // Nếu giao dịch thành công, cập nhật raisedAmount cho Project
+      if (status === INVESTMENT_STATUS.SUCCESS) {
+        const project = await tx.project.update({
+          where: { id: investment.projectId },
+          data: {
+            raisedAmount: { increment: investment.amount },
+          },
+          select: { raisedAmount: true, totalAmount: true },
+        })
+
+        // Chuyển trạng thái sang ACTIVE nếu đã đủ vốn
+        // Dùng sai số nhỏ để tránh lỗi Float precision của MongoDB/Prisma
+        if (project.raisedAmount >= project.totalAmount - 0.000001) {
+          await tx.project.update({
+            where: { id: investment.projectId },
+            data: { status: 'ACTIVE' },
+          })
+        }
+      }
+
+      return updatedInvestment
+    })
+  }
+
   async likeProject(projectId: string, userId: string) {
     const existingLike = await this.prisma.like.findUnique({
       where: {

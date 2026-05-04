@@ -11,6 +11,7 @@ import {
   ProjectQueryDTO,
   CreateReviewBodyDTO,
   UpdateReviewBodyDTO,
+  InvestBodyDTO,
 } from './project.dto'
 import { ActivateUser } from 'src/shared/decorators/activate-user.decorator'
 import { IsPublic } from 'src/shared/decorators/auth.decorator'
@@ -39,6 +40,20 @@ export class ProjectController {
   @ZodSerializerDto(ProjectSummaryRestDTO)
   getMyProjects(@ActivateUser('userId') userId: string) {
     return this.projectService.getMyProjects(userId)
+  }
+
+  @Put(':id/approve')
+  @ZodSerializerDto(MessageResDTO)
+  @ApiResponse({ type: MessageResDTO })
+  async approveProject(@Param('id') projectId: string) {
+    return this.projectService.approveProject(projectId)
+  }
+
+  @Put(':id/launch')
+  @ZodSerializerDto(MessageResDTO)
+  @ApiResponse({ type: MessageResDTO })
+  async submitLaunchTx(@Param('id') projectId: string, @Body('txHash') txHash: string) {
+    return this.projectService.submitLaunchTx(projectId, txHash)
   }
 
   @Get()
@@ -83,6 +98,14 @@ export class ProjectController {
   ) {
     await this.projectService.updateMilestone(userId, payload)
     return { message: 'Milestone progress updated successfully' }
+  }
+
+  @Post(':id/invest')
+  @ApiResponse({ status: 201, type: MessageResDTO })
+  @ZodSerializerDto(MessageResDTO)
+  async invest(@Param('id') id: string, @ActivateUser('userId') userId: string, @Body() payload: InvestBodyDTO) {
+    await this.projectService.invest(id, userId, payload.amount, payload.txHash, payload.content)
+    return { message: 'Investment recorded successfully' }
   }
 
   @Post(':id/like')
