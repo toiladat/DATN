@@ -121,6 +121,15 @@ export const ProjectDetailRestSchema = z.object({
   startDate: z.date().or(z.string()).or(z.number()),
   endDate: z.date().or(z.string()).or(z.number()),
   userId: z.string(),
+  user: z
+    .object({
+      id: z.string(),
+      name: z.string().nullable().optional(),
+      avatar: z.string().nullable().optional(),
+      email: z.string().nullable().optional(),
+      walletAddress: z.string(),
+    })
+    .optional(),
   raisedAmount: z.number(),
   category: z.object({
     name: z.string(),

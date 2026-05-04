@@ -81,6 +81,7 @@ export class ProjectRepository {
             projectId: project.id,
             userId: m.id, // ID from searched users
             role: m.role,
+            description: m.roleDescription || '',
           })),
         })
       }
@@ -299,6 +300,9 @@ export class ProjectRepository {
         OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
       },
       include: {
+        user: {
+          select: { id: true, name: true, avatar: true, email: true, walletAddress: true },
+        },
         _count: {
           select: { likes: true, reviews: true },
         },
