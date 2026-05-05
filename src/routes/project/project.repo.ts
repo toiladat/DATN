@@ -8,6 +8,7 @@ import {
   DEFAULT_CATEGORY_NAME,
   MILESTONE_STATUS,
   PROJECT_SORT,
+  WITHDRAWAL_STATUS,
   ProjectSortType,
 } from 'src/shared/constants/project.constant'
 import {
@@ -17,6 +18,9 @@ import {
   MilestoneNotFoundException,
   MilestoneNotUnlockedException,
   MilestoneAlreadyFinalizedException,
+  MilestoneNotApprovedException,
+  MilestoneAlreadyWithdrawnException,
+  DuplicateWithdrawalTxException,
 } from './project.error'
 import { UpdateMilestoneProgressBodyType } from './project.model'
 @Injectable()
@@ -138,7 +142,9 @@ export class ProjectRepository {
         const primaryCat = p.projectCategories[0]?.category?.name || DEFAULT_CATEGORY_NAME
 
         const totalMilestones = p.milestones.length
-        const completedMilestones = p.milestones.filter((m) => m.status === MILESTONE_STATUS.COMPLETED).length
+        const completedMilestones = p.milestones.filter(
+          (m) => m.status === MILESTONE_STATUS.COMPLETED || m.status === MILESTONE_STATUS.WITHDRAWN,
+        ).length
 
         const avatars = new Set<string>()
         p.investments.forEach((inv: any) => {
@@ -236,7 +242,9 @@ export class ProjectRepository {
         const primaryCat = p.projectCategories[0]?.category?.name || DEFAULT_CATEGORY_NAME
 
         const totalMilestones = p.milestones.length
-        const completedMilestones = p.milestones.filter((m) => m.status === MILESTONE_STATUS.COMPLETED).length
+        const completedMilestones = p.milestones.filter(
+          (m) => m.status === MILESTONE_STATUS.COMPLETED || m.status === MILESTONE_STATUS.WITHDRAWN,
+        ).length
 
         const avatars = new Set<string>()
         p.investments.forEach((inv: any) => {
@@ -615,6 +623,85 @@ export class ProjectRepository {
 
     return this.prisma.review.delete({
       where: { id: reviewId },
+    })
+  }
+
+  // ─── WITHDRAWAL ───────────────────────────────────────────────────────────────
+
+  async submitWithdrawMilestone(userId: string, projectId: string, milestoneId: string, txHash: string) {
+    // 1. Verify project tồn tại và userId là owner
+    const project = await this.prisma.project.findFirst({
+      where: {
+        id: projectId,
+        userId,
+        OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
+      },
+    })
+    if (!project) throw ProjectNotFoundException
+
+    // 2. Verify project.status === ACTIVE
+    if (project.status !== PROJECT_STATUS.ACTIVE) {
+      throw InvalidProjectStatusException
+    }
+
+    // 3. Tìm milestone và verify status === APPROVED
+    const milestone = await this.prisma.milestone.findFirst({
+      where: { id: milestoneId, projectId },
+      include: { withdrawalRecord: true },
+    })
+    if (!milestone) throw MilestoneNotFoundException
+
+    if (milestone.status !== MILESTONE_STATUS.APPROVED) {
+      throw MilestoneNotApprovedException
+    }
+
+    // 4. Check đã có WithdrawalRecord chưa (tránh withdraw 2 lần)
+    if (milestone.withdrawalRecord !== null) {
+      throw MilestoneAlreadyWithdrawnException
+    }
+
+    // 5. Check duplicate txHash
+    const existingWithdrawal = await this.prisma.withdrawalRecord.findUnique({
+      where: { txHash },
+    })
+    if (existingWithdrawal) throw DuplicateWithdrawalTxException
+
+    // 6. Tạo WithdrawalRecord với status PENDING
+    return this.prisma.withdrawalRecord.create({
+      data: {
+        milestoneId,
+        projectId,
+        txHash,
+        amount: milestone.amount,
+        status: WITHDRAWAL_STATUS.PENDING,
+      },
+    })
+  }
+
+  async updateWithdrawalStatus(txHash: string, status: 'SUCCESS' | 'FAILED') {
+    return this.prisma.$transaction(async (tx) => {
+      const withdrawal = await tx.withdrawalRecord.findUnique({
+        where: { txHash },
+      })
+
+      if (!withdrawal) return null
+      if (withdrawal.status !== WITHDRAWAL_STATUS.PENDING) return withdrawal
+
+      // Cập nhật WithdrawalRecord
+      const updated = await tx.withdrawalRecord.update({
+        where: { id: withdrawal.id },
+        data: { status },
+      })
+
+      // Nếu SUCCESS → set Milestone.status = WITHDRAWN
+      if (status === WITHDRAWAL_STATUS.SUCCESS) {
+        await tx.milestone.update({
+          where: { id: withdrawal.milestoneId },
+          data: { status: MILESTONE_STATUS.WITHDRAWN },
+        })
+      }
+
+      return updated
     })
   }
 }

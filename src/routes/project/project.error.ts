@@ -26,3 +26,24 @@ export const MilestoneAlreadyFinalizedException = new UnprocessableEntityExcepti
     path: 'milestoneId',
   },
 ])
+
+export const MilestoneNotApprovedException = new UnprocessableEntityException([
+  {
+    message: 'Error.MilestoneNotApproved',
+    path: 'milestoneId',
+  },
+])
+
+export const MilestoneAlreadyWithdrawnException = new UnprocessableEntityException([
+  {
+    message: 'Error.MilestoneAlreadyWithdrawn',
+    path: 'milestoneId',
+  },
+])
+
+export const DuplicateWithdrawalTxException = new UnprocessableEntityException([
+  {
+    message: 'Error.DuplicateWithdrawalTransaction',
+    path: 'txHash',
+  },
+])

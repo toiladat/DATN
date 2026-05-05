@@ -114,6 +114,7 @@ model Milestone {
   challenges  String
   outcome     String
   milestoneUpdates MilestoneUpdate?
+  withdrawalRecord WithdrawalRecord?
 
   projectId String  @db.ObjectId
   project   Project @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -134,6 +135,18 @@ model MilestoneUpdate {
 }
 
 
+
+model WithdrawalRecord {
+  id          String           @id @default(auto()) @map("_id") @db.ObjectId
+  milestoneId String           @unique @db.ObjectId
+  milestone   Milestone        @relation(fields: [milestoneId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  projectId   String           @db.ObjectId
+  txHash      String?          @unique
+  amount      Float
+  status      WithdrawalStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
 
 model ProjectMember {
   id        String  @id @default(auto()) @map("_id") @db.ObjectId
@@ -356,6 +369,12 @@ enum ProjectStatus {
 }
 
 enum InvestmentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum WithdrawalStatus {
   PENDING
   SUCCESS
   FAILED

@@ -13,6 +13,7 @@ import {
   UpdateReviewBodySchema,
   ReviewRestSchema,
   InvestBodySchema,
+  WithdrawMilestoneBodySchema,
 } from './project.model'
 
 export class CreateProjectBodyDTO extends createZodDto(CreateProjectBodySchema) {}
@@ -49,3 +50,4 @@ export class UpdateReviewBodyDTO extends createZodDto(UpdateReviewBodySchema) {}
 export class ReviewRestDTO extends createZodDto(ReviewRestSchema) {}
 
 export class InvestBodyDTO extends createZodDto(InvestBodySchema) {}
+export class WithdrawMilestoneBodyDTO extends createZodDto(WithdrawMilestoneBodySchema) {}

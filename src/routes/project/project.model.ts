@@ -222,3 +222,8 @@ export const InvestBodySchema = z.object({
   content: z.string().max(200).optional(),
 })
 export type InvestBodyType = z.infer<typeof InvestBodySchema>
+
+export const WithdrawMilestoneBodySchema = z.object({
+  txHash: z.string().min(1, 'Transaction hash is required'),
+})
+export type WithdrawMilestoneBodyType = z.infer<typeof WithdrawMilestoneBodySchema>

@@ -74,4 +74,8 @@ export class ProjectService {
   async deleteReview(userId: string, reviewId: string) {
     return this.projectRepo.deleteReview(userId, reviewId)
   }
+
+  async withdrawMilestone(userId: string, projectId: string, milestoneId: string, txHash: string) {
+    return this.projectRepo.submitWithdrawMilestone(userId, projectId, milestoneId, txHash)
+  }
 }

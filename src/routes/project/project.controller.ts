@@ -12,6 +12,7 @@ import {
   CreateReviewBodyDTO,
   UpdateReviewBodyDTO,
   InvestBodyDTO,
+  WithdrawMilestoneBodyDTO,
 } from './project.dto'
 import { ActivateUser } from 'src/shared/decorators/activate-user.decorator'
 import { IsPublic } from 'src/shared/decorators/auth.decorator'
@@ -106,6 +107,19 @@ export class ProjectController {
   async invest(@Param('id') id: string, @ActivateUser('userId') userId: string, @Body() payload: InvestBodyDTO) {
     await this.projectService.invest(id, userId, payload.amount, payload.txHash, payload.content)
     return { message: 'Investment recorded successfully' }
+  }
+
+  @Post(':id/milestones/:milestoneId/withdraw')
+  @ApiResponse({ status: 201, type: MessageResDTO })
+  @ZodSerializerDto(MessageResDTO)
+  async withdrawMilestone(
+    @Param('id') projectId: string,
+    @Param('milestoneId') milestoneId: string,
+    @ActivateUser('userId') userId: string,
+    @Body() payload: WithdrawMilestoneBodyDTO,
+  ) {
+    await this.projectService.withdrawMilestone(userId, projectId, milestoneId, payload.txHash)
+    return { message: 'Withdrawal recorded successfully' }
   }
 
   @Post(':id/like')
