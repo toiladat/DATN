@@ -11,7 +11,6 @@ export const UserSchema = z.object({
   website: z.string().optional().nullable(),
   socialLinks: z.array(z.string()).optional().default([]),
   avatar: z.string().nullable(),
-  roleId: z.string(),
   status: z.nativeEnum(UserStatus),
   walletAddress: z.string(),
   deletedAt: z.date().nullable().optional(),
@@ -21,14 +20,12 @@ export const UserSchema = z.object({
 
 export const UserUpdateSchema = UserSchema.omit({
   id: true,
-  roleId: true,
   deletedAt: true,
   createdAt: true,
   updatedAt: true,
 })
 
 export const UserProfileSchema = UserSchema.omit({
-  roleId: true,
   deletedAt: true,
   createdAt: true,
   updatedAt: true,

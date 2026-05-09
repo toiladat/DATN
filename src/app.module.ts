@@ -8,6 +8,7 @@ import { ZodSerializerInterceptor } from 'nestjs-zod'
 import { RemoveRefreshTokenCronjob } from './cronjobs/remove-refresh-token.cronjob'
 import { MilestoneStatusCronjob } from './cronjobs/milestone-status.cronjob'
 import { BlockchainIndexerCronjob } from './cronjobs/blockchain-indexer.cronjob'
+import { AdminAuthModule } from './routes/admin-auth/admin-auth.module'
 import { AuthModule } from './routes/auth/auth.module'
 
 import { UploadModule } from './routes/upload/upload.module'
@@ -42,6 +43,7 @@ import { SharedModule } from './shared/shared.module'
       ],
     }),
     AuthModule,
+    AdminAuthModule,
     SharedModule,
     UploadModule,
     UserModule,

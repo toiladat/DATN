@@ -4,6 +4,8 @@ import {
   SearchUserQuerySchema,
   SearchUserQueryResSchema,
   UpdateUserProfileSchema,
+  GetAdminUsersQuerySchema,
+  GetAdminUsersResSchema,
 } from 'src/routes/user/user.model'
 import { ApiProperty } from '@nestjs/swagger'
 
@@ -18,3 +20,6 @@ export class SearchUserQueryDTO extends createZodDto(SearchUserQuerySchema) {
 export class SearchUserQueryResDTO extends createZodDto(SearchUserQueryResSchema) {}
 
 export class UpdateUserProfileBodyDTO extends createZodDto(UpdateUserProfileSchema) {}
+
+export class GetAdminUsersQueryDTO extends createZodDto(GetAdminUsersQuerySchema) {}
+export class GetAdminUsersResDTO extends createZodDto(GetAdminUsersResSchema) {}

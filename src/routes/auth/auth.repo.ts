@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { UserType, UserUpdateType } from 'src/shared/models/shared-user.model'
 import { PrismaService } from 'src/shared/services/prisma.service'
-import { DeviceType, RefreshTokenType, RoleType } from './auth.model'
+import { DeviceType, RefreshTokenType } from './auth.model'
 
 @Injectable()
 export class AuthRepository {
@@ -15,13 +15,11 @@ export class AuthRepository {
 
   findUniqueRefreshTokenIncludeUserRole(uniqueObject: {
     token: string
-  }): Promise<(RefreshTokenType & { user: UserType & { role: RoleType } }) | null> {
+  }): Promise<(RefreshTokenType & { user: UserType }) | null> {
     return this.prismaService.refreshToken.findUniqueOrThrow({
       where: uniqueObject,
       include: {
-        user: {
-          include: { role: true },
-        },
+        user: true,
       },
     })
   }
@@ -44,14 +42,11 @@ export class AuthRepository {
 
   // ─── Users ────────────────────────────────────────────────────────────────────
 
-  findUniqueUserIncludeRole(
-    uniqueObject: { email: string } | { id: string },
-  ): Promise<(UserType & { role: RoleType }) | null> {
+  findUniqueUserIncludeRole(uniqueObject: { email: string } | { id: string }): Promise<UserType | null> {
     // email không còn @unique trong schema (dùng sparse index ở DB)
     // → dùng findFirst thay vì findUnique
     return this.prismaService.user.findFirst({
       where: uniqueObject,
-      include: { role: true },
     })
   }
 
@@ -67,10 +62,9 @@ export class AuthRepository {
 
   // ─── Wallet Auth ──────────────────────────────────────────────────────────────
 
-  findUniqueUserByWallet(walletAddress: string): Promise<(UserType & { role: RoleType }) | null> {
+  findUniqueUserByWallet(walletAddress: string): Promise<UserType | null> {
     return this.prismaService.user.findUnique({
       where: { walletAddress },
-      include: { role: true },
     })
   }
 
@@ -79,16 +73,14 @@ export class AuthRepository {
    * - New wallet → create a minimal user (no email/password)
    * - Existing wallet → no-op update (nonce stored in Redis, not here)
    */
-  upsertUserByWallet(walletAddress: string, roleId: string): Promise<UserType & { role: RoleType }> {
+  upsertUserByWallet(walletAddress: string): Promise<UserType> {
     return this.prismaService.user.upsert({
       where: { walletAddress },
       create: {
         walletAddress,
         name: `User_${walletAddress.slice(2, 8)}`,
-        roleId,
       },
       update: {},
-      include: { role: true },
     })
   }
 }

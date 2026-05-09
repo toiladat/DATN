@@ -46,4 +46,38 @@ export class TokenService {
       secret: envConfig.REFRESH_TOKEN_SECRET,
     })
   }
+
+  signAdminAccessToken(payload: import('../types/jwt.type').AdminAccessTokenPayloadCreate): string {
+    return this.jwtService.sign(
+      { ...payload, uuid: uuidv4() },
+      {
+        secret: envConfig.ACCESS_TOKEN_SECRET,
+        expiresIn: envConfig.ACCESS_TOKEN_EXPIRES_IN,
+        algorithm: 'HS256',
+      },
+    )
+  }
+
+  signAdminRefreshToken(payload: import('../types/jwt.type').AdminRefreshTokenPayloadCreate): string {
+    return this.jwtService.sign(
+      { ...payload, uuid: uuidv4() },
+      {
+        secret: envConfig.REFRESH_TOKEN_SECRET,
+        expiresIn: envConfig.REFRESH_TOKEN_EXPIRES_IN,
+        algorithm: 'HS256',
+      },
+    )
+  }
+
+  verifyAdminAccessToken(token: string): Promise<import('../types/jwt.type').AdminAccessTokenPayload> {
+    return this.jwtService.verifyAsync(token, {
+      secret: envConfig.ACCESS_TOKEN_SECRET,
+    })
+  }
+
+  verifyAdminRefreshToken(token: string): Promise<import('../types/jwt.type').AdminRefreshTokenPayload> {
+    return this.jwtService.verifyAsync(token, {
+      secret: envConfig.REFRESH_TOKEN_SECRET,
+    })
+  }
 }

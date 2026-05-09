@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { UserProfileSchema } from 'src/shared/models/shared-user.model'
+import { UserStatus } from 'src/shared/constants/auth.constant'
 
 export const GetUserParamsSchema = z
   .object({
@@ -35,3 +36,20 @@ export type UpdateUserProfileType = z.infer<typeof UpdateUserProfileSchema>
 
 export type SearchUserQueryParamsType = z.infer<typeof SearchUserQuerySchema>
 export type SearchUserQueryResType = z.infer<typeof SearchUserQueryResSchema>
+
+export const GetAdminUsersQuerySchema = z.object({
+  keyword: z.string().optional(),
+  status: z.nativeEnum(UserStatus).optional(),
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(100).default(10),
+})
+
+export const GetAdminUsersResSchema = z.object({
+  data: z.array(UserProfileSchema),
+  total: z.number(),
+  page: z.number(),
+  totalPages: z.number(),
+})
+
+export type GetAdminUsersQueryType = z.infer<typeof GetAdminUsersQuerySchema>
+export type GetAdminUsersResType = z.infer<typeof GetAdminUsersResSchema>

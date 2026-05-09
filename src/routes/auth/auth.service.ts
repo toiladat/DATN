@@ -17,13 +17,12 @@ import { TokenService } from 'src/shared/services/token.service'
 import { AccessTokenPayloadCreate } from 'src/shared/types/jwt.type'
 import { GetNonceQueryType, RefreshTokenBodyType, WalletLoginBodyType } from './auth.model'
 import { AuthRepository } from './auth.repo'
-import { RolesService } from './roles.service'
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly hashingService: HashingService,
-    private readonly rolesService: RolesService,
+
     private readonly authRepository: AuthRepository,
     private readonly sharedUserRepository: SharedUserRepository,
     private readonly emailService: EmailService,
@@ -31,9 +30,9 @@ export class AuthService {
     @Inject('REDIS_CLIENT') private readonly redisClient: any,
   ) {}
 
-  async generateTokens({ userId, deviceId, roleId, roleName }: AccessTokenPayloadCreate) {
+  async generateTokens({ userId, deviceId }: AccessTokenPayloadCreate) {
     const [accessToken, refreshToken] = await Promise.all([
-      this.tokenService.signAccessToken({ userId, deviceId, roleId, roleName }),
+      this.tokenService.signAccessToken({ userId, deviceId }),
       this.tokenService.signRefreshToken({ userId }),
     ])
 
@@ -57,13 +56,7 @@ export class AuthService {
       if (!refreshTokenInDB) {
         throw RefreshTokenAlreadyUsedException
       }
-      const {
-        deviceId,
-        user: {
-          roleId,
-          role: { name: roleName },
-        },
-      } = refreshTokenInDB
+      const { deviceId } = refreshTokenInDB
       //Cập nhật device
       const $updateDevice = this.authRepository.updateDevice(deviceId, {
         ip,
@@ -76,7 +69,7 @@ export class AuthService {
       })
 
       //Tạo AT và RT mới và cập nhật
-      const $token = this.generateTokens({ userId, deviceId, roleId, roleName })
+      const $token = this.generateTokens({ userId, deviceId })
 
       const [, , tokens] = await Promise.all([$updateDevice, $deleteRefreshToken, $token])
       return tokens
@@ -113,8 +106,7 @@ export class AuthService {
     const rawNonce = uuidv4()
     const nonce = `Please sign this message to authenticate with the app:\n\nNonce: ${rawNonce}`
 
-    const clientRoleId = await this.rolesService.getClientRoleId()
-    await this.authRepository.upsertUserByWallet(walletAddress, clientRoleId)
+    await this.authRepository.upsertUserByWallet(walletAddress)
 
     // Store the nonce in Redis with an expiration time of 5 minutes (300 seconds)
     await this.redisClient.set(`wallet_nonce:${walletAddress.toLowerCase()}`, nonce, 'EX', 300)
@@ -161,8 +153,6 @@ export class AuthService {
     return this.generateTokens({
       userId: user.id,
       deviceId: device.id,
-      roleId: user.roleId,
-      roleName: user.role.name,
     })
   }
 

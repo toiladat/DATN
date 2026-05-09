@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { UserProfileType } from 'src/shared/models/shared-user.model'
 import { PrismaService } from 'src/shared/services/prisma.service'
-import { SearchUserQueryParamsType, UpdateUserProfileType } from './user.model'
+import { GetAdminUsersQueryType, SearchUserQueryParamsType, UpdateUserProfileType } from './user.model'
 @Injectable()
 export class UserRepo {
   constructor(private prismaService: PrismaService) {}
@@ -48,5 +48,35 @@ export class UserRepo {
       where: { id },
       data,
     })
+  }
+
+  async findAdminUsers(query: GetAdminUsersQueryType) {
+    const { keyword, status, page, limit } = query
+    const whereClause: any = {}
+
+    if (status) {
+      whereClause.status = status
+    }
+
+    if (keyword) {
+      whereClause.OR = [
+        { email: { contains: keyword, mode: 'insensitive' } },
+        { name: { contains: keyword, mode: 'insensitive' } },
+        { walletAddress: { contains: keyword, mode: 'insensitive' } },
+      ]
+    }
+
+    const skip = (page - 1) * limit
+    const [data, total] = await Promise.all([
+      this.prismaService.user.findMany({
+        where: whereClause,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prismaService.user.count({ where: whereClause }),
+    ])
+
+    return { data, total, page, limit }
   }
 }

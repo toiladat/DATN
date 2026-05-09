@@ -21,8 +21,7 @@ model User {
   walletAddress String @unique
 
   status        UserStatus     @default(KYC_PENDING)
-  roleId        String         @db.ObjectId
-  role          Role           @relation(fields: [roleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
   refreshTokens RefreshToken[]
 
   projects        Project[]
@@ -36,10 +35,7 @@ model User {
   investments     Investment[]
 
   // Audits
-  createdPermissions Permission[] @relation("PermissionCreatedBy")
-  updatedPermissions Permission[] @relation("PermissionUpdatedBy")
-  createdRoles       Role[]       @relation("RoleCreatedBy")
-  updatedRoles       Role[]       @relation("RoleUpdatedBy")
+
   createdCategories  Category[]   @relation("CategoryCreatedBy")
   updatedCategories  Category[]   @relation("CategoryUpdatedBy")
 
@@ -225,58 +221,6 @@ model RefreshToken {
   @@index([expiresAt])
 }
 
-model Permission {
-  id          String     @id @default(auto()) @map("_id") @db.ObjectId
-  name        String     @unique
-  description String
-  path        String
-  method      HTTPMethod
-
-  rolePermissions RolePermission[]
-
-  createdById String? @db.ObjectId
-  createdBy   User?   @relation("PermissionCreatedBy", fields: [createdById], references: [id])
-  updatedById String? @db.ObjectId
-  updatedBy   User?   @relation("PermissionUpdatedBy", fields: [updatedById], references: [id])
-
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  @@index([deletedAt])
-}
-
-model Role {
-  id          String  @id @default(auto()) @map("_id") @db.ObjectId
-  name        String  @unique
-  description String
-  isActive    Boolean @default(true)
-
-  rolePermissions RolePermission[]
-  users           User[]
-
-  createdById String? @db.ObjectId
-  createdBy   User?   @relation("RoleCreatedBy", fields: [createdById], references: [id])
-  updatedById String? @db.ObjectId
-  updatedBy   User?   @relation("RoleUpdatedBy", fields: [updatedById], references: [id])
-
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  @@index([deletedAt])
-}
-
-model RolePermission {
-  id           String @id @default(auto()) @map("_id") @db.ObjectId
-  roleId       String @db.ObjectId
-  permissionId String @db.ObjectId
-
-  role       Role       @relation(fields: [roleId], references: [id])
-  permission Permission @relation(fields: [permissionId], references: [id])
-
-  @@unique([roleId, permissionId])
-}
 
 model Follow {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
@@ -378,5 +322,47 @@ enum WithdrawalStatus {
   PENDING
   SUCCESS
   FAILED
+}
+
+model Admin {
+  id       String  @id @default(auto()) @map("_id") @db.ObjectId
+  email    String  @unique
+  password String
+  name     String
+  isActive Boolean @default(true)
+
+  refreshTokens AdminRefreshToken[]
+  devices       AdminDevice[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+}
+
+model AdminDevice {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  adminId    String   @db.ObjectId
+  admin      Admin    @relation(fields: [adminId], references: [id])
+  userAgent  String
+  ip         String
+  lastActive DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  isActive   Boolean  @default(true)
+
+  refreshTokens AdminRefreshToken[]
+}
+
+model AdminRefreshToken {
+  id       String      @id @default(auto()) @map("_id") @db.ObjectId
+  token    String      @unique
+  adminId  String      @db.ObjectId
+  admin    Admin       @relation(fields: [adminId], references: [id])
+  deviceId String      @db.ObjectId
+  device   AdminDevice @relation(fields: [deviceId], references: [id])
+
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
 }
  
