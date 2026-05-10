@@ -6,6 +6,7 @@ import {
   UpdateUserProfileSchema,
   GetAdminUsersQuerySchema,
   GetAdminUsersResSchema,
+  GetAdminUserDetailResSchema,
 } from 'src/routes/user/user.model'
 import { ApiProperty } from '@nestjs/swagger'
 
@@ -23,3 +24,4 @@ export class UpdateUserProfileBodyDTO extends createZodDto(UpdateUserProfileSche
 
 export class GetAdminUsersQueryDTO extends createZodDto(GetAdminUsersQuerySchema) {}
 export class GetAdminUsersResDTO extends createZodDto(GetAdminUsersResSchema) {}
+export class GetAdminUserDetailResDTO extends createZodDto(GetAdminUserDetailResSchema) {}

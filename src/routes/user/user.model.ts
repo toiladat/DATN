@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { UserProfileSchema } from 'src/shared/models/shared-user.model'
+import { UserProfileSchema, UserSchema } from 'src/shared/models/shared-user.model'
 import { UserStatus } from 'src/shared/constants/auth.constant'
 
 export const GetUserParamsSchema = z
@@ -53,3 +53,24 @@ export const GetAdminUsersResSchema = z.object({
 
 export type GetAdminUsersQueryType = z.infer<typeof GetAdminUsersQuerySchema>
 export type GetAdminUsersResType = z.infer<typeof GetAdminUsersResSchema>
+
+export const GetAdminUserDetailResSchema = z.object({
+  user: UserSchema,
+  stats: z.object({
+    projects: z.object({
+      total: z.number(),
+      success: z.number(),
+      failed: z.number(),
+      pending: z.number(),
+      fundraising: z.number(),
+      executing: z.number(),
+    }),
+    financials: z.object({
+      totalReceived: z.number(),
+      totalInvestmentsCount: z.number(),
+      totalInvestedAmount: z.number(),
+    }),
+  }),
+})
+
+export type GetAdminUserDetailResType = z.infer<typeof GetAdminUserDetailResSchema>
