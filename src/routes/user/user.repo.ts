@@ -112,12 +112,12 @@ export class UserRepo {
     let pending = 0
     let fundraising = 0
     let executing = 0
-    let totalReceived = 0
+    let totalRaised = 0
 
     projectsGroup.forEach((group) => {
       const count = group._count
       totalProjects += count
-      totalReceived += group._sum.raisedAmount || 0
+      totalRaised += group._sum.raisedAmount || 0
 
       switch (group.status) {
         case 'SUCCESS':
@@ -152,6 +152,22 @@ export class UserRepo {
       },
     })
 
+    const withdrawalsAgg = await this.prismaService.withdrawalRecord.aggregate({
+      where: {
+        milestone: {
+          project: {
+            userId: id,
+          },
+        },
+        status: 'SUCCESS',
+      },
+      _sum: {
+        amount: true,
+      },
+    })
+
+    const totalReceived = withdrawalsAgg._sum.amount || 0
+
     return {
       user,
       stats: {
@@ -165,6 +181,7 @@ export class UserRepo {
         },
         financials: {
           totalReceived,
+          totalRaised,
           totalInvestmentsCount: investmentsAgg._count || 0,
           totalInvestedAmount: investmentsAgg._sum.amount || 0,
         },
@@ -186,5 +203,109 @@ export class UserRepo {
       data: { status: 'ACTIVE' },
     })
     return user
+  }
+
+  async getWalletProjects(userId: string, status?: 'ACTIVE' | 'SUCCESS') {
+    const whereClause: any = {
+      userId,
+      OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
+    }
+
+    if (status) {
+      whereClause.status = status
+    } else {
+      whereClause.status = { in: ['ACTIVE', 'SUCCESS'] }
+    }
+
+    const projects = await this.prismaService.project.findMany({
+      where: whereClause,
+      include: {
+        milestones: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    return {
+      data: projects.map((p) => {
+        const totalPhases = p.milestones.length
+        const currentPhase = p.milestones.filter((m) =>
+          ['COMPLETED', 'APPROVED', 'WITHDRAWN'].includes(m.status),
+        ).length
+        const daysLeft = Math.max(
+          0,
+          Math.ceil((new Date(p.endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)),
+        )
+
+        return {
+          id: p.id,
+          title: p.title,
+          image: p.images && p.images.length > 0 ? p.images[0] : undefined,
+          daysLeft,
+          currentPhase,
+          totalPhases,
+        }
+      }),
+    }
+  }
+
+  async getProjectWithdrawals(userId: string, projectId: string) {
+    // Optionally verify project belongs to user
+    const project = await this.prismaService.project.findUnique({
+      where: { id: projectId, userId },
+    })
+    if (!project) {
+      throw new Error('Project not found for this user')
+    }
+
+    const withdrawals = await this.prismaService.withdrawalRecord.findMany({
+      where: {
+        projectId,
+      },
+      include: {
+        milestone: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    return {
+      data: withdrawals.map((w) => ({
+        id: w.id,
+        amount: w.amount,
+        createdAt: w.createdAt.toISOString(),
+        milestone: {
+          title: w.milestone.title,
+          image: w.milestone.images && w.milestone.images.length > 0 ? w.milestone.images[0] : undefined,
+        },
+      })),
+    }
+  }
+
+  async getUserInvestments(userId: string) {
+    const investments = await this.prismaService.investment.findMany({
+      where: {
+        userId,
+        OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
+      },
+      include: {
+        project: true,
+      },
+      orderBy: { createdAt: 'asc' }, // "từ sớm nhất đến muộn nhất"
+    })
+
+    return {
+      data: investments.map((inv) => ({
+        id: inv.id,
+        amount: inv.amount,
+        content: inv.content,
+        txHash: inv.txHash,
+        status: inv.status,
+        createdAt: inv.createdAt.toISOString(),
+        project: {
+          id: inv.project.id,
+          title: inv.project.title,
+          image: inv.project.images && inv.project.images.length > 0 ? inv.project.images[0] : undefined,
+        },
+      })),
+    }
   }
 }

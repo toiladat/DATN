@@ -7,6 +7,10 @@ import {
   GetAdminUsersQuerySchema,
   GetAdminUsersResSchema,
   GetAdminUserDetailResSchema,
+  GetWalletProjectsQuerySchema,
+  GetWalletProjectsResSchema,
+  GetProjectWithdrawalsResSchema,
+  GetInvestmentsResSchema,
 } from 'src/routes/user/user.model'
 import { ApiProperty } from '@nestjs/swagger'
 
@@ -25,3 +29,11 @@ export class UpdateUserProfileBodyDTO extends createZodDto(UpdateUserProfileSche
 export class GetAdminUsersQueryDTO extends createZodDto(GetAdminUsersQuerySchema) {}
 export class GetAdminUsersResDTO extends createZodDto(GetAdminUsersResSchema) {}
 export class GetAdminUserDetailResDTO extends createZodDto(GetAdminUserDetailResSchema) {}
+
+export class GetWalletProjectsQueryDTO extends createZodDto(GetWalletProjectsQuerySchema) {
+  @ApiProperty({ required: false, enum: ['ACTIVE', 'SUCCESS'] })
+  status?: 'ACTIVE' | 'SUCCESS'
+}
+export class GetWalletProjectsResDTO extends createZodDto(GetWalletProjectsResSchema) {}
+export class GetProjectWithdrawalsResDTO extends createZodDto(GetProjectWithdrawalsResSchema) {}
+export class GetInvestmentsResDTO extends createZodDto(GetInvestmentsResSchema) {}

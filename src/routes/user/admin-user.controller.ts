@@ -2,7 +2,15 @@ import { Controller, Get, Query, Param, UseGuards, Patch } from '@nestjs/common'
 import { ApiBearerAuth, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ZodSerializerDto } from 'nestjs-zod'
 import { UserService } from './user.service'
-import { GetAdminUsersQueryDTO, GetAdminUsersResDTO, GetAdminUserDetailResDTO } from './user.dto'
+import {
+  GetAdminUsersQueryDTO,
+  GetAdminUsersResDTO,
+  GetAdminUserDetailResDTO,
+  GetWalletProjectsQueryDTO,
+  GetWalletProjectsResDTO,
+  GetProjectWithdrawalsResDTO,
+  GetInvestmentsResDTO,
+} from './user.dto'
 import { AdminAccessTokenGuard } from 'src/shared/guards/admin-access-token.guard'
 
 @ApiTags('Admin Users')
@@ -36,5 +44,26 @@ export class AdminUserController {
   @ApiResponse({ status: 200 })
   unbanUser(@Param('id') id: string) {
     return this.userService.unbanUser(id)
+  }
+
+  @Get(':id/wallet/projects')
+  @ApiResponse({ status: 200, type: GetWalletProjectsResDTO })
+  @ZodSerializerDto(GetWalletProjectsResDTO)
+  getWalletProjects(@Param('id') id: string, @Query() query: GetWalletProjectsQueryDTO) {
+    return this.userService.getWalletProjects(id, query.status)
+  }
+
+  @Get(':id/wallet/projects/:projectId/withdrawals')
+  @ApiResponse({ status: 200, type: GetProjectWithdrawalsResDTO })
+  @ZodSerializerDto(GetProjectWithdrawalsResDTO)
+  getProjectWithdrawals(@Param('id') id: string, @Param('projectId') projectId: string) {
+    return this.userService.getProjectWithdrawals(id, projectId)
+  }
+
+  @Get(':id/investments')
+  @ApiResponse({ status: 200, type: GetInvestmentsResDTO })
+  @ZodSerializerDto(GetInvestmentsResDTO)
+  getInvestments(@Param('id') id: string) {
+    return this.userService.getUserInvestments(id)
   }
 }

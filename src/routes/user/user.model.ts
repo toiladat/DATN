@@ -67,6 +67,7 @@ export const GetAdminUserDetailResSchema = z.object({
     }),
     financials: z.object({
       totalReceived: z.number(),
+      totalRaised: z.number(),
       totalInvestmentsCount: z.number(),
       totalInvestedAmount: z.number(),
     }),
@@ -74,3 +75,58 @@ export const GetAdminUserDetailResSchema = z.object({
 })
 
 export type GetAdminUserDetailResType = z.infer<typeof GetAdminUserDetailResSchema>
+
+export const GetWalletProjectsQuerySchema = z.object({
+  status: z.enum(['ACTIVE', 'SUCCESS']).optional(),
+})
+
+export const WalletProjectSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  image: z.string().optional(),
+  daysLeft: z.number(),
+  currentPhase: z.number(),
+  totalPhases: z.number(),
+})
+
+export const GetWalletProjectsResSchema = z.object({
+  data: z.array(WalletProjectSchema),
+})
+
+export const ProjectWithdrawalSchema = z.object({
+  id: z.string(),
+  amount: z.number(),
+  createdAt: z.date().or(z.string()),
+  milestone: z.object({
+    title: z.string(),
+    image: z.string().optional(),
+  }),
+})
+
+export const GetProjectWithdrawalsResSchema = z.object({
+  data: z.array(ProjectWithdrawalSchema),
+})
+
+export type GetWalletProjectsQueryType = z.infer<typeof GetWalletProjectsQuerySchema>
+export type GetWalletProjectsResType = z.infer<typeof GetWalletProjectsResSchema>
+export type GetProjectWithdrawalsResType = z.infer<typeof GetProjectWithdrawalsResSchema>
+
+export const UserInvestmentSchema = z.object({
+  id: z.string(),
+  amount: z.number(),
+  content: z.string().nullable().optional(),
+  txHash: z.string().nullable().optional(),
+  status: z.enum(['PENDING', 'SUCCESS', 'FAILED']),
+  createdAt: z.date().or(z.string()),
+  project: z.object({
+    id: z.string(),
+    title: z.string(),
+    image: z.string().optional(),
+  }),
+})
+
+export const GetInvestmentsResSchema = z.object({
+  data: z.array(UserInvestmentSchema),
+})
+
+export type GetInvestmentsResType = z.infer<typeof GetInvestmentsResSchema>

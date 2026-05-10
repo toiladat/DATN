@@ -70,4 +70,23 @@ export class UserService {
     await this.userRepo.unbanUser(id)
     return { success: true, message: 'User unbanned successfully' }
   }
+
+  async getWalletProjects(userId: string, status?: 'ACTIVE' | 'SUCCESS') {
+    return this.userRepo.getWalletProjects(userId, status)
+  }
+
+  async getProjectWithdrawals(userId: string, projectId: string) {
+    try {
+      return await this.userRepo.getProjectWithdrawals(userId, projectId)
+    } catch (error) {
+      if (error.message === 'Project not found for this user') {
+        throw NotFoundRecordException
+      }
+      throw error
+    }
+  }
+
+  async getUserInvestments(userId: string) {
+    return this.userRepo.getUserInvestments(userId)
+  }
 }
