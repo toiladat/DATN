@@ -43,13 +43,6 @@ export class ProjectController {
     return this.projectService.getMyProjects(userId)
   }
 
-  @Put(':id/approve')
-  @ZodSerializerDto(MessageResDTO)
-  @ApiResponse({ type: MessageResDTO })
-  async approveProject(@Param('id') projectId: string) {
-    return this.projectService.approveProject(projectId)
-  }
-
   @Put(':id/launch')
   @ZodSerializerDto(MessageResDTO)
   @ApiResponse({ type: MessageResDTO })

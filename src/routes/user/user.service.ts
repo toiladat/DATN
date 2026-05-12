@@ -89,4 +89,8 @@ export class UserService {
   async getUserInvestments(userId: string) {
     return this.userRepo.getUserInvestments(userId)
   }
+
+  async getAdminUserProjects(userId: string) {
+    return this.userRepo.getAdminUserProjects(userId)
+  }
 }

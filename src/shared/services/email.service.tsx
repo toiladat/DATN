@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common'
 import { Resend } from 'resend'
 import OTPEmail from 'src/emails/otp'
 import BanEmail from 'src/emails/ban'
+import RejectProjectEmail from 'src/emails/reject-project'
+import ApproveProjectEmail from 'src/emails/approve-project'
 import envConfig from '../config'
 
 @Injectable()
@@ -28,6 +30,26 @@ export class EmailService {
       to: [payload.email],
       subject,
       react: <BanEmail name={payload.name} reason={payload.reason} />,
+    })
+  }
+
+  async sendRejectProjectNotification(payload: { email: string; name: string; projectName: string; reason: string }) {
+    const subject = `Dự án "${payload.projectName}" chưa được phê duyệt`
+    return this.resend.emails.send({
+      from: 'TOILADAT <no-reply@toiladat.online>',
+      to: [payload.email],
+      subject,
+      react: <RejectProjectEmail name={payload.name} projectName={payload.projectName} reason={payload.reason} />,
+    })
+  }
+
+  async sendApproveProjectNotification(payload: { email: string; name: string; projectName: string }) {
+    const subject = `Dự án "${payload.projectName}" đã được phê duyệt!`
+    return this.resend.emails.send({
+      from: 'TOILADAT <no-reply@toiladat.online>',
+      to: [payload.email],
+      subject,
+      react: <ApproveProjectEmail name={payload.name} projectName={payload.projectName} />,
     })
   }
 }

@@ -11,6 +11,7 @@ import {
   GetWalletProjectsResSchema,
   GetProjectWithdrawalsResSchema,
   GetInvestmentsResSchema,
+  GetAdminUserProjectsResSchema,
 } from 'src/routes/user/user.model'
 import { ApiProperty } from '@nestjs/swagger'
 
@@ -37,3 +38,4 @@ export class GetWalletProjectsQueryDTO extends createZodDto(GetWalletProjectsQue
 export class GetWalletProjectsResDTO extends createZodDto(GetWalletProjectsResSchema) {}
 export class GetProjectWithdrawalsResDTO extends createZodDto(GetProjectWithdrawalsResSchema) {}
 export class GetInvestmentsResDTO extends createZodDto(GetInvestmentsResSchema) {}
+export class GetAdminUserProjectsResDTO extends createZodDto(GetAdminUserProjectsResSchema) {}

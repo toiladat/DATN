@@ -130,3 +130,28 @@ export const GetInvestmentsResSchema = z.object({
 })
 
 export type GetInvestmentsResType = z.infer<typeof GetInvestmentsResSchema>
+
+// ─── Admin User Projects ───────────────────────────────────────────────────────
+
+export const AdminUserProjectSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  subtitle: z.string().nullable().optional(),
+  image: z.string().nullable().optional(),
+  status: z.enum(['pending', 'progress', 'active', 'success', 'rejected']),
+  fundingGoal: z.number(),
+  raisedAmount: z.number(),
+  primaryCategory: z.string().optional(),
+  startDate: z.number(),
+  endDate: z.number(),
+  updatedAt: z.number(),
+  totalMilestones: z.number(),
+  completedMilestones: z.number(),
+})
+
+export const GetAdminUserProjectsResSchema = z.object({
+  data: z.array(AdminUserProjectSchema),
+})
+
+export type AdminUserProjectType = z.infer<typeof AdminUserProjectSchema>
+export type GetAdminUserProjectsResType = z.infer<typeof GetAdminUserProjectsResSchema>

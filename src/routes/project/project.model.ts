@@ -227,3 +227,43 @@ export const WithdrawMilestoneBodySchema = z.object({
   txHash: z.string().min(1, 'Transaction hash is required'),
 })
 export type WithdrawMilestoneBodyType = z.infer<typeof WithdrawMilestoneBodySchema>
+
+// ─── Pending Projects (Admin) ────────────────────────────────────────────────
+
+export const PendingProjectUserSchema = z.object({
+  id: z.string(),
+  name: z.string().nullable().optional(),
+  email: z.string().nullable().optional(),
+  avatar: z.string().nullable().optional(),
+  walletAddress: z.string().nullable().optional(),
+  phoneNumber: z.string().nullable().optional(),
+  location: z.string().nullable().optional(),
+})
+
+export const PendingProjectItemSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  subtitle: z.string().nullable().optional(),
+  image: z.string().nullable().optional(),
+  status: z.string(),
+  fundingGoal: z.number(),
+  raisedAmount: z.number(),
+  primaryCategory: z.string().optional(),
+  startDate: z.number(),
+  endDate: z.number(),
+  createdAt: z.number(),
+  totalMilestones: z.number(),
+  user: PendingProjectUserSchema,
+})
+
+export const PendingProjectsRestSchema = z.object({
+  projects: z.array(PendingProjectItemSchema),
+})
+
+export type PendingProjectItemType = z.infer<typeof PendingProjectItemSchema>
+export type PendingProjectsRestType = z.infer<typeof PendingProjectsRestSchema>
+
+export const RejectProjectBodySchema = z.object({
+  reason: z.string().min(1, 'Reject reason is required'),
+})
+export type RejectProjectBodyType = z.infer<typeof RejectProjectBodySchema>

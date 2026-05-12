@@ -98,6 +98,68 @@ export class ProjectRepository {
     return this.prisma.project.update({
       where: { id: projectId },
       data: { status: 'APPROVED' },
+      include: { user: true },
+    })
+  }
+
+  async getPendingProjects() {
+    const projects = await this.prisma.project.findMany({
+      where: {
+        status: 'PENDING',
+        OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatar: true,
+            walletAddress: true,
+            phoneNumber: true,
+            location: true,
+          },
+        },
+        milestones: { select: { id: true } },
+        projectCategories: {
+          include: { category: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    return {
+      projects: projects.map((p) => ({
+        id: p.id,
+        title: p.title,
+        subtitle: p.subtitle,
+        image: p.images[0] || null,
+        status: 'pending',
+        fundingGoal: p.totalAmount,
+        raisedAmount: p.raisedAmount,
+        primaryCategory: p.projectCategories[0]?.category?.name,
+        startDate: p.startDate.getTime(),
+        endDate: p.endDate.getTime(),
+        createdAt: p.createdAt.getTime(),
+        totalMilestones: p.milestones.length,
+        user: {
+          id: p.user.id,
+          name: p.user.name,
+          email: p.user.email,
+          avatar: p.user.avatar,
+          walletAddress: p.user.walletAddress,
+          phoneNumber: (p.user as any).phoneNumber ?? null,
+          location: (p.user as any).location ?? null,
+        },
+      })),
+    }
+  }
+
+  async rejectProject(projectId: string, reason: string) {
+    return this.prisma.project.update({
+      where: { id: projectId },
+      data: { status: 'FAILED', rejectReason: reason },
+      include: { user: true },
     })
   }
 

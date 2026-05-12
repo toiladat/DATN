@@ -77,6 +77,7 @@ model Project {
   raisedAmount Float @default(0)
   launchTxHash String? // txHash khi đưa dự án lên chuỗi
   status       ProjectStatus @default(PENDING)
+  rejectReason String?       // Lý do từ chối (chỉ khi status=FAILED do admin reject)
   startDate   DateTime
   endDate     DateTime
 

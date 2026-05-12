@@ -1,18 +1,52 @@
 import { Injectable } from '@nestjs/common'
 import { ProjectRepository } from './project.repo'
 import { CreateProjectBodyType, UpdateMilestoneProgressBodyType } from './project.model'
+import { EmailService } from 'src/shared/services/email.service'
 
 @Injectable()
 export class ProjectService {
-  constructor(private readonly projectRepo: ProjectRepository) {}
+  constructor(
+    private readonly projectRepo: ProjectRepository,
+    private readonly emailService: EmailService,
+  ) {}
 
   async create(ownerId: string, data: CreateProjectBodyType) {
     return this.projectRepo.createProject(ownerId, data)
   }
 
   async approveProject(projectId: string) {
-    await this.projectRepo.approveProject(projectId)
+    const project = await this.projectRepo.approveProject(projectId)
+    const user = (project as any).user
+    if (user?.email) {
+      this.emailService
+        .sendApproveProjectNotification({
+          email: user.email,
+          name: user.name || user.email,
+          projectName: project.title,
+        })
+        .catch(() => {})
+    }
     return { message: 'Project approved successfully' }
+  }
+
+  async getPendingProjects() {
+    return this.projectRepo.getPendingProjects()
+  }
+
+  async rejectProject(projectId: string, reason: string) {
+    const project = await this.projectRepo.rejectProject(projectId, reason)
+    const user = (project as any).user
+    if (user?.email) {
+      this.emailService
+        .sendRejectProjectNotification({
+          email: user.email,
+          name: user.name || user.email,
+          projectName: project.title,
+          reason,
+        })
+        .catch(() => {})
+    }
+    return { message: 'Project rejected successfully' }
   }
 
   async submitLaunchTx(projectId: string, txHash: string) {

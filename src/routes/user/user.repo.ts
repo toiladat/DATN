@@ -308,4 +308,49 @@ export class UserRepo {
       })),
     }
   }
+
+  async getAdminUserProjects(userId: string) {
+    const STATUS_MAP: Record<string, 'pending' | 'progress' | 'active' | 'success' | 'rejected'> = {
+      PENDING: 'pending',
+      APPROVED: 'pending',
+      PROGRESS: 'progress',
+      ACTIVE: 'active',
+      SUCCESS: 'success',
+      FAILED: 'rejected',
+      EXPIRED: 'rejected',
+    }
+
+    const projects = await this.prismaService.project.findMany({
+      where: {
+        userId,
+        OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
+      },
+      include: {
+        milestones: true,
+        projectCategories: {
+          include: { category: true },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    })
+
+    return {
+      data: projects.map((p) => ({
+        id: p.id,
+        title: p.title,
+        subtitle: p.subtitle ?? null,
+        image: p.images && p.images.length > 0 ? p.images[0] : null,
+        status: STATUS_MAP[p.status] ?? 'pending',
+        fundingGoal: p.totalAmount,
+        raisedAmount: p.raisedAmount,
+        primaryCategory: p.projectCategories[0]?.category?.name ?? 'General',
+        startDate: p.startDate.getTime(),
+        endDate: p.endDate.getTime(),
+        updatedAt: p.updatedAt.getTime(),
+        totalMilestones: p.milestones.length,
+        completedMilestones: p.milestones.filter((m) => ['COMPLETED', 'APPROVED', 'WITHDRAWN'].includes(m.status))
+          .length,
+      })),
+    }
+  }
 }

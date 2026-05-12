@@ -10,6 +10,7 @@ import {
   GetWalletProjectsResDTO,
   GetProjectWithdrawalsResDTO,
   GetInvestmentsResDTO,
+  GetAdminUserProjectsResDTO,
 } from './user.dto'
 import { AdminAccessTokenGuard } from 'src/shared/guards/admin-access-token.guard'
 
@@ -44,6 +45,13 @@ export class AdminUserController {
   @ApiResponse({ status: 200 })
   unbanUser(@Param('id') id: string) {
     return this.userService.unbanUser(id)
+  }
+
+  @Get(':id/projects')
+  @ApiResponse({ status: 200, type: GetAdminUserProjectsResDTO })
+  @ZodSerializerDto(GetAdminUserProjectsResDTO)
+  getUserProjects(@Param('id') id: string) {
+    return this.userService.getAdminUserProjects(id)
   }
 
   @Get(':id/wallet/projects')
