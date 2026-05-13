@@ -32,4 +32,25 @@ export class AdminProjectController {
   async rejectProject(@Param('id') projectId: string, @Body() body: RejectProjectBodyDTO) {
     return this.projectService.rejectProject(projectId, body.reason)
   }
+
+  // ─── ADMIN MILESTONES ────────────────────────────────────────────────────────
+
+  @Get('pending-milestones')
+  async getPendingMilestones() {
+    return this.projectService.getPendingMilestones()
+  }
+
+  @Put('milestones/:id/approve')
+  @ZodSerializerDto(MessageResDTO)
+  @ApiResponse({ type: MessageResDTO })
+  async approveMilestone(@Param('id') milestoneId: string) {
+    return this.projectService.approveMilestone(milestoneId)
+  }
+
+  @Put('milestones/:id/reject')
+  @ZodSerializerDto(MessageResDTO)
+  @ApiResponse({ type: MessageResDTO })
+  async rejectMilestone(@Param('id') milestoneId: string, @Body() body: RejectProjectBodyDTO) {
+    return this.projectService.rejectMilestone(milestoneId, body.reason)
+  }
 }

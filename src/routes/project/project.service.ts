@@ -49,6 +49,24 @@ export class ProjectService {
     return { message: 'Project rejected successfully' }
   }
 
+  // ─── ADMIN MILESTONES ────────────────────────────────────────────────────────
+
+  async getPendingMilestones() {
+    return this.projectRepo.getPendingMilestones()
+  }
+
+  async approveMilestone(milestoneId: string) {
+    await this.projectRepo.approveMilestone(milestoneId)
+    // Optional: Send email to user that milestone is approved
+    return { message: 'Milestone approved successfully' }
+  }
+
+  async rejectMilestone(milestoneId: string, reason: string) {
+    await this.projectRepo.rejectMilestone(milestoneId, reason)
+    // Optional: Send email to user that milestone is rejected
+    return { message: 'Milestone rejected successfully' }
+  }
+
   async submitLaunchTx(projectId: string, txHash: string) {
     await this.projectRepo.submitLaunchTx(projectId, txHash)
     return { message: 'Launch transaction submitted' }

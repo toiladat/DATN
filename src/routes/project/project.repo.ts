@@ -163,6 +163,68 @@ export class ProjectRepository {
     })
   }
 
+  // ─── ADMIN MILESTONES ────────────────────────────────────────────────────────
+
+  async getPendingMilestones() {
+    // Tìm các Milestone N đang chờ duyệt (status: PROGRESS) và order > 1
+    const pendingMilestones = await this.prisma.milestone.findMany({
+      where: {
+        status: 'PROGRESS',
+        order: { gt: 1 },
+        project: { status: 'ACTIVE' },
+      },
+      include: {
+        project: {
+          select: { id: true, title: true, slug: true, images: true, user: { select: { name: true, avatar: true } } },
+        },
+      },
+      orderBy: { endDate: 'asc' },
+    })
+
+    // Lấy báo cáo của giai đoạn liền trước (N-1)
+    const result = await Promise.all(
+      pendingMilestones.map(async (milestone) => {
+        const prevMilestone = await this.prisma.milestone.findFirst({
+          where: {
+            projectId: milestone.projectId,
+            order: milestone.order - 1,
+          },
+          include: {
+            milestoneUpdates: true,
+          },
+        })
+
+        return {
+          ...milestone,
+          previousMilestone: prevMilestone,
+        }
+      }),
+    )
+
+    return result
+  }
+
+  async approveMilestone(milestoneId: string) {
+    return this.prisma.milestone.update({
+      where: { id: milestoneId },
+      data: { status: 'APPROVED' },
+    })
+  }
+
+  async rejectMilestone(milestoneId: string, reason: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const milestone = await tx.milestone.update({
+        where: { id: milestoneId },
+        data: { status: 'CANCELLED' },
+      })
+      await tx.project.update({
+        where: { id: milestone.projectId },
+        data: { status: 'FAILED', rejectReason: reason },
+      })
+      return milestone
+    })
+  }
+
   async submitLaunchTx(projectId: string, txHash: string) {
     return this.prisma.project.update({
       where: { id: projectId },
@@ -583,6 +645,12 @@ export class ProjectRepository {
           await tx.project.update({
             where: { id: investment.projectId },
             data: { status: 'ACTIVE' },
+          })
+
+          // Tự động Approve Milestone 1 để Founder rút tiền khởi động
+          await tx.milestone.updateMany({
+            where: { projectId: investment.projectId, order: 1 },
+            data: { status: 'APPROVED' },
           })
         }
       }
