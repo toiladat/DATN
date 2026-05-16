@@ -4,6 +4,8 @@ import OTPEmail from 'src/emails/otp'
 import BanEmail from 'src/emails/ban'
 import RejectProjectEmail from 'src/emails/reject-project'
 import ApproveProjectEmail from 'src/emails/approve-project'
+import ApproveMilestoneEmail from 'src/emails/approve-milestone'
+import RejectMilestoneEmail from 'src/emails/reject-milestone'
 import envConfig from '../config'
 
 @Injectable()
@@ -50,6 +52,50 @@ export class EmailService {
       to: [payload.email],
       subject,
       react: <ApproveProjectEmail name={payload.name} projectName={payload.projectName} />,
+    })
+  }
+
+  async sendApproveMilestoneNotification(payload: {
+    email: string
+    name: string
+    projectName: string
+    milestoneTitle: string
+  }) {
+    const subject = `Cột mốc "${payload.milestoneTitle}" thuộc dự án "${payload.projectName}" đã được phê duyệt!`
+    return this.resend.emails.send({
+      from: 'TOILADAT <no-reply@toiladat.online>',
+      to: [payload.email],
+      subject,
+      react: (
+        <ApproveMilestoneEmail
+          name={payload.name}
+          projectName={payload.projectName}
+          milestoneTitle={payload.milestoneTitle}
+        />
+      ),
+    })
+  }
+
+  async sendRejectMilestoneNotification(payload: {
+    email: string
+    name: string
+    projectName: string
+    milestoneTitle: string
+    reason: string
+  }) {
+    const subject = `Cột mốc "${payload.milestoneTitle}" thuộc dự án "${payload.projectName}" chưa được phê duyệt`
+    return this.resend.emails.send({
+      from: 'TOILADAT <no-reply@toiladat.online>',
+      to: [payload.email],
+      subject,
+      react: (
+        <RejectMilestoneEmail
+          name={payload.name}
+          projectName={payload.projectName}
+          milestoneTitle={payload.milestoneTitle}
+          reason={payload.reason}
+        />
+      ),
     })
   }
 }

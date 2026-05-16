@@ -56,14 +56,35 @@ export class ProjectService {
   }
 
   async approveMilestone(milestoneId: string) {
-    await this.projectRepo.approveMilestone(milestoneId)
-    // Optional: Send email to user that milestone is approved
+    const milestone = await this.projectRepo.approveMilestone(milestoneId)
+    const user = (milestone as any).project?.user
+    if (user?.email) {
+      this.emailService
+        .sendApproveMilestoneNotification({
+          email: user.email,
+          name: user.name || user.email,
+          projectName: milestone.project?.title || '',
+          milestoneTitle: milestone.title || 'Cột mốc',
+        })
+        .catch(() => {})
+    }
     return { message: 'Milestone approved successfully' }
   }
 
   async rejectMilestone(milestoneId: string, reason: string) {
-    await this.projectRepo.rejectMilestone(milestoneId, reason)
-    // Optional: Send email to user that milestone is rejected
+    const milestone = await this.projectRepo.rejectMilestone(milestoneId, reason)
+    const user = (milestone as any).project?.user
+    if (user?.email) {
+      this.emailService
+        .sendRejectMilestoneNotification({
+          email: user.email,
+          name: user.name || user.email,
+          projectName: milestone.project?.title || '',
+          milestoneTitle: milestone.title || 'Cột mốc',
+          reason,
+        })
+        .catch(() => {})
+    }
     return { message: 'Milestone rejected successfully' }
   }
 

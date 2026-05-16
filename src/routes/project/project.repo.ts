@@ -208,6 +208,7 @@ export class ProjectRepository {
     return this.prisma.milestone.update({
       where: { id: milestoneId },
       data: { status: 'APPROVED' },
+      include: { project: { include: { user: true } } },
     })
   }
 
@@ -216,6 +217,7 @@ export class ProjectRepository {
       const milestone = await tx.milestone.update({
         where: { id: milestoneId },
         data: { status: 'CANCELLED' },
+        include: { project: { include: { user: true } } },
       })
       await tx.project.update({
         where: { id: milestone.projectId },
