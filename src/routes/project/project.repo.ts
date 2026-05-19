@@ -29,7 +29,7 @@ export class ProjectRepository {
 
   async createProject(ownerId: string, data: CreateProjectBodyType): Promise<CreateProjectRestType> {
     const projectSlug = generateSlug(data.basics.title)
-
+    console.log('Project repo createProject attachments:', JSON.stringify(data.attachments, null, 2))
     return this.prisma.$transaction(async (tx) => {
       const project = await tx.project.create({
         data: {
@@ -86,6 +86,19 @@ export class ProjectRepository {
             userId: m.id, // ID from searched users
             role: m.role,
             description: m.roleDescription || '',
+          })),
+        })
+      }
+
+      // 4. Create Project Attachments
+      if (data.attachments && data.attachments.length > 0) {
+        await tx.projectAttachment.createMany({
+          data: data.attachments.map((a) => ({
+            projectId: project.id,
+            url: a.url,
+            category: a.category,
+            customCategoryName: a.customCategoryName || null,
+            description: a.description || null,
           })),
         })
       }
@@ -460,6 +473,7 @@ export class ProjectRepository {
             },
           },
         },
+        projectAttachments: true,
       },
     })
 

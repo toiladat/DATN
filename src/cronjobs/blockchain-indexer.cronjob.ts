@@ -130,7 +130,22 @@ export class BlockchainIndexerCronjob {
                   // Bước Xác minh B: Số tiền
                   // Ép kiểu số lượng Database (amount) sang quy chuẩn wei (18 decimals) để so sánh với Blockchain
                   const expectedAmount = ethers.parseEther(investment.amount.toString())
-                  if (eventAmount >= expectedAmount) {
+
+                  if (eventAmount > 0n && eventAmount <= expectedAmount) {
+                    isValid = true
+                    // Xử lý Capped Contribution: Nếu Smart Contract lấy ít hơn do dự án đã đủ Goal
+                    if (eventAmount < expectedAmount) {
+                      const actualAmount = Number(ethers.formatEther(eventAmount))
+                      await this.prisma.investment.update({
+                        where: { id: investment.id },
+                        data: { amount: actualAmount },
+                      })
+                      this.logger.log(
+                        `TxHash ${investment.txHash}: Contribution capped. Updated DB amount from ${investment.amount} to ${actualAmount}`,
+                      )
+                    }
+                    break
+                  } else if (eventAmount > expectedAmount) {
                     isValid = true
                     break
                   } else {

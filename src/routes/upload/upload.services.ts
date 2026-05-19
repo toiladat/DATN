@@ -120,6 +120,9 @@ export class UploadServices implements UploadFileServiceAbstract {
       case ACCEPTED_UPLOAD_TYPES.PROJECT:
         return `${userBase}/projects/`
 
+      case ACCEPTED_UPLOAD_TYPES.ATTACHMENT:
+        return `${userBase}/attachments/`
+
       default:
         throw InvalidUploadTypeException
     }

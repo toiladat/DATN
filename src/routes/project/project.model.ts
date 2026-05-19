@@ -49,10 +49,18 @@ export const CreateTeamMemberSchema = z.object({
   roleDescription: z.string(),
 })
 
+export const CreateProjectAttachmentSchema = z.object({
+  url: z.string().url(),
+  category: z.string(),
+  customCategoryName: z.string().optional(),
+  description: z.string().optional(),
+})
+
 export const CreateProjectBodySchema = z.object({
   basics: CreateProjectBasicsSchema,
   milestones: z.array(CreateMilestoneSchema),
   team: z.array(CreateTeamMemberSchema),
+  attachments: z.array(CreateProjectAttachmentSchema).optional(),
 })
 
 export const CreateProjectRestSchema = z.object({
@@ -159,6 +167,17 @@ export const ProjectDetailRestSchema = z.object({
   ),
   milestones: z.array(MilestoneRestSchema),
   projectMembers: z.array(z.any()),
+  projectAttachments: z
+    .array(
+      z.object({
+        id: z.string(),
+        url: z.string(),
+        category: z.string(),
+        customCategoryName: z.string().nullable().optional(),
+        description: z.string().nullable().optional(),
+      }),
+    )
+    .optional(),
   createdAt: z.date().or(z.string()).or(z.number()),
   updatedAt: z.date().or(z.string()).or(z.number()),
 })

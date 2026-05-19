@@ -31,13 +31,11 @@ model User {
   // User Actions
   likes           Like[]
   reviews         Review[]
-  follows         Follow[]
   investments     Investment[]
 
   // Audits
 
-  createdCategories  Category[]   @relation("CategoryCreatedBy")
-  updatedCategories  Category[]   @relation("CategoryUpdatedBy")
+
 
   deletedAt DateTime?
   createdAt DateTime  @default(now())
@@ -54,9 +52,9 @@ model Category {
   projectCategories ProjectCategory[]
 
   createdBy String  @db.ObjectId
-  creator   User    @relation("CategoryCreatedBy", fields: [createdBy], references: [id])
+  creator   Admin    @relation("CategoryCreatedBy", fields: [createdBy], references: [id])
   updatedBy String? @db.ObjectId
-  updater   User?   @relation("CategoryUpdatedBy", fields: [updatedBy], references: [id])
+  updater   Admin?   @relation("CategoryUpdatedBy", fields: [updatedBy], references: [id])
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -89,6 +87,7 @@ model Project {
   likes             Like[]
   reviews           Review[]
   projectMembers    ProjectMember[]
+  projectAttachments ProjectAttachment[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -155,6 +154,16 @@ model ProjectMember {
   user      User    @relation(fields: [userId], references: [id])
 }
 
+model ProjectAttachment {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  url                String
+  category           String
+  customCategoryName String?
+  description        String?
+  projectId          String   @db.ObjectId
+  project            Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
 model Investment {
   id      String           @id @default(auto()) @map("_id") @db.ObjectId
   amount  Float @default(0) 
@@ -182,18 +191,7 @@ model ProjectCategory {
   @@unique([projectId, categoryId])
 }
 
-model VerificationCode {
-  id    String               @id @default(auto()) @map("_id") @db.ObjectId
-  email String
-  code  String
-  type  VerificationCodeType
 
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  @@unique([email, type])
-  @@index([expiresAt])
-}
 
 model Device {
   id            String         @id @default(auto()) @map("_id") @db.ObjectId
@@ -223,12 +221,7 @@ model RefreshToken {
 }
 
 
-model Follow {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String   @db.ObjectId
-  user      User     @relation(fields: [userId], references: [id])
-  createdAt DateTime @default(now())
-}
+
 
 model Like {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
@@ -260,14 +253,6 @@ model Review {
 
   @@index([projectId])
   @@index([parentId])
-}
-
-
-enum VerificationCodeType {
-  REGISTER
-  FORGOT_PASSWORD
-  LOGIN
-  DISABLE_2FA
 }
 
 enum UserStatus {
@@ -333,6 +318,8 @@ model Admin {
   avatar   String?
   isActive Boolean @default(true)
 
+  createdCategories  Category[]   @relation("CategoryCreatedBy")
+  updatedCategories  Category[]   @relation("CategoryUpdatedBy")
   refreshTokens AdminRefreshToken[]
   devices       AdminDevice[]
 

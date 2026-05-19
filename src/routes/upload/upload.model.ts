@@ -1,6 +1,7 @@
 import {
   ACCEPTED_IMAGE_TYPES,
   ACCEPTED_VIDEO_TYPES,
+  ACCEPTED_DOCUMENT_TYPES,
   ACCEPTED_UPLOAD_TYPES,
   MAX_FILE_QUANTITY,
   MAX_VIDEO_SIZE,
@@ -8,15 +9,28 @@ import {
 import { z } from 'zod'
 
 const BaseUploadInfoSchema = z.object({
-  type: z.enum([ACCEPTED_UPLOAD_TYPES.COVER, ACCEPTED_UPLOAD_TYPES.MILESTONE, ACCEPTED_UPLOAD_TYPES.PROJECT]),
+  type: z.enum([
+    ACCEPTED_UPLOAD_TYPES.COVER,
+    ACCEPTED_UPLOAD_TYPES.MILESTONE,
+    ACCEPTED_UPLOAD_TYPES.PROJECT,
+    ACCEPTED_UPLOAD_TYPES.ATTACHMENT,
+  ]),
 })
 
 const FileMetadataSchema = z
   .object({
     filename: z.string().min(1),
-    filetype: z.string().refine((val) => ACCEPTED_IMAGE_TYPES.includes(val) || ACCEPTED_VIDEO_TYPES.includes(val), {
-      message: 'File type must be an accepted image or video format',
-    }),
+    filetype: z
+      .string()
+      .refine(
+        (val) =>
+          ACCEPTED_IMAGE_TYPES.includes(val) ||
+          ACCEPTED_VIDEO_TYPES.includes(val) ||
+          ACCEPTED_DOCUMENT_TYPES.includes(val),
+        {
+          message: 'File type must be an accepted image, video, or document format (PDF, DOC, DOCX)',
+        },
+      ),
     filesize: z.number().max(MAX_VIDEO_SIZE, 'File size must be less than max limit'),
   })
   .strict()
@@ -58,6 +72,16 @@ export const PresignedUploadFilesBodySchema = z
         ctx.addIssue({
           code: 'custom',
           message: `Cannot upload more than ${MAX_FILE_QUANTITY.PROJECT} images for a project`,
+          path: ['files'],
+        })
+      }
+    }
+
+    if (info.type === ACCEPTED_UPLOAD_TYPES.ATTACHMENT) {
+      if (files.length > MAX_FILE_QUANTITY.ATTACHMENT) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `Cannot upload more than ${MAX_FILE_QUANTITY.ATTACHMENT} attachment files`,
           path: ['files'],
         })
       }
