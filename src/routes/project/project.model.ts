@@ -241,7 +241,7 @@ export const UpdateReviewBodySchema = z.object({
   content: z.string().min(1, 'Content is required'),
 })
 export const InvestBodySchema = z.object({
-  amount: z.number().positive(),
+  amount: z.number().min(1, 'Amount must be at least 1'),
   txHash: z.string().min(1),
   content: z.string().max(200).optional(),
 })
