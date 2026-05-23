@@ -4,7 +4,7 @@ import { ethers } from 'ethers'
 import { PrismaService } from '../shared/services/prisma.service'
 import { ProjectRepository } from '../routes/project/project.repo'
 import { INVESTMENT_STATUS, WITHDRAWAL_STATUS } from '../shared/constants/project.constant'
-
+import envConfig from 'src/shared/config'
 @Injectable()
 export class BlockchainIndexerCronjob {
   private readonly logger = new Logger(BlockchainIndexerCronjob.name)
@@ -18,11 +18,11 @@ export class BlockchainIndexerCronjob {
     private readonly projectRepo: ProjectRepository,
   ) {
     // Khởi tạo RPC Provider
-    const rpcUrl = process.env.RPC_URL || 'https://ethereum-sepolia.publicnode.com'
+    const rpcUrl = envConfig.PROVIDER_URL
     this.provider = new ethers.JsonRpcProvider(rpcUrl)
 
     // Khởi tạo Contract Address & ABI
-    this.contractAddress = process.env.CROWDFUNDING_ADDRESS || '0x6ba7c843ff71A771249c1f8BE00fC4Bc51D75b94'
+    this.contractAddress = envConfig.CROWDFUNDING_ADDRESS
     this.iface = new ethers.Interface([
       'event Contributed(uint256 indexed id, address indexed contributor, uint256 amount)',
       'event ProjectCreated(uint256 indexed projectId, address indexed creator, uint256 goal)',

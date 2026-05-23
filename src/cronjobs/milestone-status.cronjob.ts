@@ -12,14 +12,20 @@ export class MilestoneStatusCronjob {
   async handleCron() {
     this.logger.log('Bắt đầu cronjob cập nhật trạng thái Milestone...')
     try {
+      // Tính thời gian cuối ngày hôm nay theo múi giờ GMT+7 (16:59:59.999 UTC)
+      // Đảm bảo kích hoạt chính xác theo ngày local của người dùng
       const now = new Date()
+      const localTime = new Date(now.getTime() + 7 * 60 * 60 * 1000)
+      const localEndDay = new Date(
+        Date.UTC(localTime.getUTCFullYear(), localTime.getUTCMonth(), localTime.getUTCDate(), 16, 59, 59, 999),
+      )
 
       // Kích hoạt các milestone đã đến ngày bắt đầu
       const activatedMilestones = await this.prismaService.milestone.updateMany({
         where: {
           status: MILESTONE_STATUS.COMING_SOON,
           startDate: {
-            lte: now,
+            lte: localEndDay,
           },
         },
         data: {

@@ -7,6 +7,7 @@ import {
   UpdateUserProfileType,
   GetAdminUserDetailResType,
 } from './user.model'
+import { InvestmentStatus } from '@prisma/client'
 @Injectable()
 export class UserRepo {
   constructor(private prismaService: PrismaService) {}
@@ -285,6 +286,7 @@ export class UserRepo {
       where: {
         userId,
         OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
+        status: InvestmentStatus.SUCCESS,
       },
       include: {
         project: true,

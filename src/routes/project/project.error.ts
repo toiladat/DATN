@@ -47,3 +47,10 @@ export const DuplicateWithdrawalTxException = new UnprocessableEntityException([
     path: 'txHash',
   },
 ])
+
+export const BlockchainCancelProjectException = new UnprocessableEntityException([
+  {
+    message: 'Error.BlockchainCancelProjectFailed',
+    path: 'blockchain',
+  },
+])

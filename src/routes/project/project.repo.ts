@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common'
 import { PrismaService } from 'src/shared/services/prisma.service'
 import { CreateProjectBodyType, CreateProjectRestType } from './project.model'
 import { generateSlug } from 'src/shared/helpers'
+import { ethers } from 'ethers'
+import envConfig from 'src/shared/config'
 import {
   INVESTMENT_STATUS,
   PROJECT_STATUS,
@@ -169,6 +171,22 @@ export class ProjectRepository {
   }
 
   async rejectProject(projectId: string, reason: string) {
+    const project = await this.prisma.project.findUnique({ where: { id: projectId } })
+    if (project && (project.status === 'PROGRESS' || project.status === 'ACTIVE')) {
+      try {
+        const provider = new ethers.JsonRpcProvider(envConfig.PROVIDER_URL)
+        const wallet = new ethers.Wallet(envConfig.ADMIN_PRIVATE_KEY, provider)
+        const contractAbi = ['function adminCancelProject(uint256 _projectId) external']
+        const contract = new ethers.Contract(envConfig.CROWDFUNDING_ADDRESS, contractAbi, wallet)
+        const tx = await contract.adminCancelProject(BigInt('0x' + projectId))
+        await tx.wait()
+      } catch (e) {
+        console.error('Failed to cancel project on blockchain:', e)
+        // We still continue to update the DB even if blockchain fails, or we could throw.
+        // We log error here.
+      }
+    }
+
     return this.prisma.project.update({
       where: { id: projectId },
       data: { status: 'FAILED', rejectReason: reason },
@@ -225,6 +243,13 @@ export class ProjectRepository {
     })
   }
 
+  async getMilestoneById(milestoneId: string) {
+    return this.prisma.milestone.findUnique({
+      where: { id: milestoneId },
+      include: { project: true },
+    })
+  }
+
   async rejectMilestone(milestoneId: string, reason: string) {
     return this.prisma.$transaction(async (tx) => {
       const milestone = await tx.milestone.update({
@@ -236,6 +261,19 @@ export class ProjectRepository {
         where: { id: milestone.projectId },
         data: { status: 'FAILED', rejectReason: reason },
       })
+
+      // Try to cancel on blockchain
+      try {
+        const provider = new ethers.JsonRpcProvider(envConfig.PROVIDER_URL)
+        const wallet = new ethers.Wallet(envConfig.ADMIN_PRIVATE_KEY, provider)
+        const contractAbi = ['function adminCancelProject(uint256 _projectId) external']
+        const contract = new ethers.Contract(envConfig.CROWDFUNDING_ADDRESS, contractAbi, wallet)
+        const txHash = await contract.adminCancelProject(BigInt('0x' + milestone.projectId))
+        await txHash.wait()
+      } catch (e) {
+        console.error('Failed to cancel project on blockchain:', e)
+      }
+
       return milestone
     })
   }
@@ -314,6 +352,105 @@ export class ProjectRepository {
     }
   }
 
+  async getMyInvestedProjects(userId: string) {
+    const projects = await this.prisma.project.findMany({
+      where: {
+        investments: {
+          some: {
+            userId: userId,
+            status: INVESTMENT_STATUS.SUCCESS, // only count successful investments
+          },
+        },
+        OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
+      },
+      include: {
+        investments: {
+          include: { user: { select: { avatar: true } } },
+        },
+        milestones: true,
+        likes: true,
+        projectCategories: {
+          include: { category: true },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    })
+
+    return {
+      projects: projects.map((p) => {
+        const raisedAmount = p.investments.reduce((sum, inv) => {
+          return inv.status === INVESTMENT_STATUS.SUCCESS ? sum + inv.amount : sum
+        }, 0)
+
+        // Calculate myInvestmentAmount and investedAt for the specific user
+        const userInvestments = p.investments.filter(
+          (inv) => inv.userId === userId && (inv.status === INVESTMENT_STATUS.SUCCESS || inv.status === 'REFUNDED'),
+        )
+        const myInvestmentAmount = userInvestments.reduce((sum, inv) => sum + inv.amount, 0)
+
+        // Check if user has already refunded
+        const hasRefunded = userInvestments.some((inv) => inv.status === 'REFUNDED')
+
+        // Lấy thời điểm đầu tư mới nhất hoặc cũ nhất (tuỳ chọn, ở đây lấy mới nhất)
+        const latestInvestment = userInvestments.sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        )[0]
+        const investedAt = latestInvestment ? new Date(latestInvestment.createdAt).getTime() : 0
+
+        let mappedStatus = 'pending'
+        if (p.status === PROJECT_STATUS.PROGRESS) mappedStatus = 'progress'
+        else if (p.status === PROJECT_STATUS.ACTIVE) mappedStatus = 'active'
+        else if (p.status === PROJECT_STATUS.SUCCESS) mappedStatus = 'success'
+        else if (p.status === PROJECT_STATUS.FAILED || p.status === PROJECT_STATUS.EXPIRED) mappedStatus = 'rejected'
+
+        const primaryCat = p.projectCategories[0]?.category?.name || DEFAULT_CATEGORY_NAME
+
+        const totalMilestones = p.milestones.length
+        const withdrawnMilestonesAmount = p.milestones
+          .filter((m) => m.status === MILESTONE_STATUS.WITHDRAWN)
+          .reduce((sum, m) => sum + m.amount, 0)
+        const remainingBalance = Math.max(0, raisedAmount - withdrawnMilestonesAmount)
+        const calculatedRefund = raisedAmount > 0 ? (myInvestmentAmount * remainingBalance) / raisedAmount : 0
+        const refundAmount = Math.round(calculatedRefund * 10) / 10
+
+        const completedMilestones = p.milestones.filter(
+          (m) => m.status === MILESTONE_STATUS.COMPLETED || m.status === MILESTONE_STATUS.WITHDRAWN,
+        ).length
+
+        const avatars = new Set<string>()
+        p.investments.forEach((inv: any) => {
+          if (inv.user?.avatar) avatars.add(inv.user.avatar)
+        })
+        const topInvestorsAvatars = Array.from(avatars).slice(0, 3)
+
+        return {
+          id: p.id,
+          title: p.title,
+          description: p.subtitle,
+          status: mappedStatus,
+          fundingGoal: p.totalAmount,
+          raisedAmount,
+          myInvestmentAmount,
+          refundAmount,
+          investedAt,
+          image: p.images[0] || null,
+          primaryCategory: primaryCat,
+          investorsCount: p.investments.length,
+          topInvestorsAvatars,
+          likesCount: p.likes.length,
+          isLiked: p.likes.some((l) => l.userId === userId),
+          startDate: p.startDate.getTime(),
+          endDate: p.endDate.getTime(),
+          updatedAt: p.updatedAt.getTime(),
+          totalMilestones,
+          completedMilestones,
+          hasRefunded,
+          rejectReason: p.rejectReason || undefined,
+        }
+      }),
+    }
+  }
+
   async getAllProjects(
     page: number,
     limit: number,
@@ -324,7 +461,7 @@ export class ProjectRepository {
   ) {
     const whereCondition = {
       status: {
-        in: [PROJECT_STATUS.ACTIVE, PROJECT_STATUS.PROGRESS],
+        in: [PROJECT_STATUS.ACTIVE, PROJECT_STATUS.PROGRESS, PROJECT_STATUS.SUCCESS],
       },
       OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
       ...(search?.trim() ? { title: { contains: search.trim(), mode: 'insensitive' as const } } : {}),
@@ -529,6 +666,55 @@ export class ProjectRepository {
     }
   }
 
+  async processRefund(userId: string, projectId: string, txHash: string) {
+    // 1. Verify the project status
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      select: { status: true },
+    })
+
+    if (!project || (project.status !== PROJECT_STATUS.FAILED && project.status !== PROJECT_STATUS.EXPIRED)) {
+      throw new Error('Project is not failed or expired. Cannot refund.')
+    }
+
+    // 2. Fetch the user's SUCCESS investments in this project
+    const investments = await this.prisma.investment.findMany({
+      where: {
+        userId,
+        projectId,
+        status: INVESTMENT_STATUS.SUCCESS,
+      },
+    })
+
+    if (investments.length === 0) {
+      throw new Error('No successful investments found to refund.')
+    }
+
+    // 3. Verify on blockchain
+    try {
+      const provider = new ethers.JsonRpcProvider(envConfig.PROVIDER_URL)
+      const receipt = await provider.getTransactionReceipt(txHash)
+
+      if (!receipt || receipt.status !== 1) {
+        throw new Error('Transaction is pending or failed on blockchain.')
+      }
+    } catch (e) {
+      throw new Error('Failed to verify transaction on blockchain: ' + e.message)
+    }
+
+    // 4. Update them to REFUNDED
+    await this.prisma.investment.updateMany({
+      where: {
+        id: { in: investments.map((inv) => inv.id) },
+      },
+      data: {
+        status: 'REFUNDED' as any, // Using 'any' as it was just added to prisma schema and client might not be refreshed yet in TS types
+      },
+    })
+
+    return { success: true }
+  }
+
   private async assertMilestoneUpdateEligible(projectId: string, milestoneId: string): Promise<{ isLate: boolean }> {
     const allMilestones = await this.prisma.milestone.findMany({
       where: { projectId },
@@ -540,12 +726,7 @@ export class ProjectRepository {
     if (!target) throw MilestoneNotFoundException
 
     // Terminal status check: Cannot update if already finalized
-    const TERMINAL_STATUSES = [
-      MILESTONE_STATUS.COMPLETED,
-      MILESTONE_STATUS.APPROVED,
-      MILESTONE_STATUS.CANCELLED,
-      MILESTONE_STATUS.WITHDRAWN,
-    ]
+    const TERMINAL_STATUSES = [MILESTONE_STATUS.CANCELLED]
     if (TERMINAL_STATUSES.includes(target.status as any)) {
       throw MilestoneAlreadyFinalizedException
     }
@@ -559,12 +740,19 @@ export class ProjectRepository {
 
     // Sequential prerequisite: milestone 1 has no dependency
     // Order is always 1-n, so previous milestone is order - 1
+    const DONE_STATUSES = [MILESTONE_STATUS.COMPLETED, MILESTONE_STATUS.APPROVED, MILESTONE_STATUS.WITHDRAWN]
+
     if (target.order > 1) {
       const prev = allMilestones.find((m) => m.order === target.order - 1)
-      const DONE_STATUSES = [MILESTONE_STATUS.COMPLETED, MILESTONE_STATUS.APPROVED]
       if (!prev || !DONE_STATUSES.includes(prev.status as any)) {
         throw MilestoneNotUnlockedException
       }
+    }
+
+    // If the NEXT milestone is already APPROVED or WITHDRAWN, this milestone is finalized
+    const next = allMilestones.find((m) => m.order === target.order + 1)
+    if (next && DONE_STATUSES.includes(next.status as any)) {
+      throw MilestoneAlreadyFinalizedException
     }
 
     // Determine if this is a late update (after endDate)
@@ -845,6 +1033,30 @@ export class ProjectRepository {
           where: { id: withdrawal.milestoneId },
           data: { status: MILESTONE_STATUS.WITHDRAWN },
         })
+
+        // Kiểm tra xem tất cả các milestones của project này đã được WITHDRAWN chưa
+        const projectId = withdrawal.projectId
+        const totalMilestones = await tx.milestone.count({
+          where: { projectId },
+        })
+
+        const withdrawnMilestones = await tx.milestone.count({
+          where: {
+            projectId,
+            status: MILESTONE_STATUS.WITHDRAWN,
+          },
+        })
+
+        // Nếu số lượng milestone đã rút (WITHDRAWN) bằng tổng số lượng milestone, dự án chuyển sang trạng thái SUCCESS
+        if (totalMilestones > 0 && withdrawnMilestones === totalMilestones) {
+          await tx.project.update({
+            where: { id: projectId },
+            data: { status: PROJECT_STATUS.SUCCESS },
+          })
+          console.log(
+            `[ProjectRepository] Project ${projectId} has successfully completed all milestones -> Status updated to SUCCESS`,
+          )
+        }
       }
 
       return updated

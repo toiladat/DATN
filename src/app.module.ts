@@ -8,6 +8,7 @@ import { ZodSerializerInterceptor } from 'nestjs-zod'
 import { RemoveRefreshTokenCronjob } from './cronjobs/remove-refresh-token.cronjob'
 import { MilestoneStatusCronjob } from './cronjobs/milestone-status.cronjob'
 import { BlockchainIndexerCronjob } from './cronjobs/blockchain-indexer.cronjob'
+import { ProjectStatusCronjob } from './cronjobs/project-status.cronjob'
 import { AdminAuthModule } from './routes/admin-auth/admin-auth.module'
 import { AuthModule } from './routes/auth/auth.module'
 
@@ -75,6 +76,7 @@ import { SharedModule } from './shared/shared.module'
     RemoveRefreshTokenCronjob,
     MilestoneStatusCronjob,
     BlockchainIndexerCronjob,
+    ProjectStatusCronjob,
     // {
     //   provide: APP_FILTER,//bắt và xử lý mọi exception trên toàn ứng dụng, lỗi chung chung
     //   useClass: CatchEverythingFilter

@@ -87,6 +87,11 @@ export const ProjectSummaryRestSchema = z.object({
       updatedAt: z.number(),
       totalMilestones: z.number().optional(),
       completedMilestones: z.number().optional(),
+      myInvestmentAmount: z.number().optional(),
+      investedAt: z.number().optional(),
+      hasRefunded: z.boolean().optional(),
+      refundAmount: z.number().optional(),
+      rejectReason: z.string().optional(),
     }),
   ),
 })
@@ -246,6 +251,11 @@ export const WithdrawMilestoneBodySchema = z.object({
   txHash: z.string().min(1, 'Transaction hash is required'),
 })
 export type WithdrawMilestoneBodyType = z.infer<typeof WithdrawMilestoneBodySchema>
+
+export const RefundBodySchema = z.object({
+  txHash: z.string().min(1, 'Transaction hash is required'),
+})
+export type RefundBodyType = z.infer<typeof RefundBodySchema>
 
 // ─── Pending Projects (Admin) ────────────────────────────────────────────────
 

@@ -302,6 +302,7 @@ enum InvestmentStatus {
   PENDING
   SUCCESS
   FAILED
+  REFUNDED
 }
 
 enum WithdrawalStatus {

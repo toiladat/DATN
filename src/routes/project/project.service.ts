@@ -1,10 +1,15 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
+import { ethers } from 'ethers'
 import { ProjectRepository } from './project.repo'
 import { CreateProjectBodyType, UpdateMilestoneProgressBodyType } from './project.model'
 import { EmailService } from 'src/shared/services/email.service'
+import envConfig from 'src/shared/config'
+import { MilestoneNotFoundException, BlockchainCancelProjectException } from './project.error'
 
 @Injectable()
 export class ProjectService {
+  private readonly logger = new Logger(ProjectService.name)
+
   constructor(
     private readonly projectRepo: ProjectRepository,
     private readonly emailService: EmailService,
@@ -72,6 +77,40 @@ export class ProjectService {
   }
 
   async rejectMilestone(milestoneId: string, reason: string) {
+    // 1. Lấy thông tin dự án để kiểm tra xem đã lên blockchain chưa
+    const milestoneInfo = await this.projectRepo.getMilestoneById(milestoneId)
+    if (!milestoneInfo || !milestoneInfo.project) {
+      throw MilestoneNotFoundException
+    }
+
+    const project = milestoneInfo.project
+    if (project.status === 'ACTIVE') {
+      const privateKey = envConfig.ADMIN_PRIVATE_KEY
+      const rpcUrl = envConfig.PROVIDER_URL
+      const contractAddress = envConfig.CROWDFUNDING_ADDRESS
+
+      const provider = new ethers.JsonRpcProvider(rpcUrl)
+      const adminWallet = new ethers.Wallet(privateKey, provider)
+      const iface = new ethers.Interface(['function adminCancelProject(uint256 _projectId) external'])
+      const contract = new ethers.Contract(contractAddress, iface, adminWallet)
+
+      try {
+        this.logger.log(`Cancelling project ${project.id} on blockchain...`)
+        // projectId trên blockchain là uint256 từ chuỗi hex của MongoDB UUID
+        const projectIdUint256 = BigInt('0x' + project.id)
+
+        const tx = await contract.adminCancelProject(projectIdUint256)
+        this.logger.log(`Blockchain tx submitted: ${tx.hash}, waiting for confirmation...`)
+
+        await tx.wait(1)
+        this.logger.log(`Project ${project.id} cancelled successfully on blockchain.`)
+      } catch (error: any) {
+        this.logger.error(`Failed to cancel project on blockchain: ${error.message}`)
+        throw BlockchainCancelProjectException
+      }
+    }
+
+    // 3. Nếu thành công (hoặc dự án chưa ACTIVE), tiến hành cập nhật Database
     const milestone = await this.projectRepo.rejectMilestone(milestoneId, reason)
     const user = (milestone as any).project?.user
     if (user?.email) {
@@ -95,6 +134,14 @@ export class ProjectService {
 
   async getMyProjects(userId: string) {
     return this.projectRepo.getMyProjects(userId)
+  }
+
+  async processRefund(userId: string, projectId: string, txHash: string) {
+    return this.projectRepo.processRefund(userId, projectId, txHash)
+  }
+
+  async getMyInvestedProjects(userId: string) {
+    return this.projectRepo.getMyInvestedProjects(userId)
   }
 
   async getAllProjects(

@@ -14,6 +14,7 @@ import {
   ReviewRestSchema,
   InvestBodySchema,
   WithdrawMilestoneBodySchema,
+  RefundBodySchema,
   PendingProjectsRestSchema,
   RejectProjectBodySchema,
 } from './project.model'
@@ -53,5 +54,6 @@ export class ReviewRestDTO extends createZodDto(ReviewRestSchema) {}
 
 export class InvestBodyDTO extends createZodDto(InvestBodySchema) {}
 export class WithdrawMilestoneBodyDTO extends createZodDto(WithdrawMilestoneBodySchema) {}
+export class RefundBodyDTO extends createZodDto(RefundBodySchema) {}
 export class PendingProjectsRestDTO extends createZodDto(PendingProjectsRestSchema) {}
 export class RejectProjectBodyDTO extends createZodDto(RejectProjectBodySchema) {}

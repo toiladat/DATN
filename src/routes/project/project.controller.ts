@@ -13,6 +13,7 @@ import {
   UpdateReviewBodyDTO,
   InvestBodyDTO,
   WithdrawMilestoneBodyDTO,
+  RefundBodyDTO,
 } from './project.dto'
 import { ActivateUser } from 'src/shared/decorators/activate-user.decorator'
 import { IsPublic } from 'src/shared/decorators/auth.decorator'
@@ -41,6 +42,13 @@ export class ProjectController {
   @ZodSerializerDto(ProjectSummaryRestDTO)
   getMyProjects(@ActivateUser('userId') userId: string) {
     return this.projectService.getMyProjects(userId)
+  }
+
+  @Get('invested')
+  @ApiResponse({ status: 200, type: ProjectSummaryRestDTO })
+  @ZodSerializerDto(ProjectSummaryRestDTO)
+  getMyInvestedProjects(@ActivateUser('userId') userId: string) {
+    return this.projectService.getMyInvestedProjects(userId)
   }
 
   @Put(':id/launch')
@@ -100,6 +108,14 @@ export class ProjectController {
   async invest(@Param('id') id: string, @ActivateUser('userId') userId: string, @Body() payload: InvestBodyDTO) {
     await this.projectService.invest(id, userId, payload.amount, payload.txHash, payload.content)
     return { message: 'Investment recorded successfully' }
+  }
+
+  @Post(':id/refund')
+  @ApiResponse({ status: 201, type: MessageResDTO })
+  @ZodSerializerDto(MessageResDTO)
+  async refund(@Param('id') projectId: string, @ActivateUser('userId') userId: string, @Body() payload: RefundBodyDTO) {
+    await this.projectService.processRefund(userId, projectId, payload.txHash)
+    return { message: 'Refund recorded successfully' }
   }
 
   @Post(':id/milestones/:milestoneId/withdraw')

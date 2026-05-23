@@ -46,6 +46,10 @@ const conifgSchema = z.object({
   R2_PUBLIC_URL: z.string(),
 
   REDIS_URL: z.string(),
+
+  CROWDFUNDING_ADDRESS: z.string(),
+  PROVIDER_URL: z.string(),
+  ADMIN_PRIVATE_KEY: z.string(),
 })
 
 const configServer = conifgSchema.safeParse(process.env)
