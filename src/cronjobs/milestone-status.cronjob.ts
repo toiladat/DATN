@@ -6,7 +6,7 @@ import { MILESTONE_STATUS } from 'src/shared/constants/project.constant'
 @Injectable()
 export class MilestoneStatusCronjob {
   private readonly logger = new Logger(MilestoneStatusCronjob.name)
-  constructor(private prismaService: PrismaService) {}
+  constructor(private readonly prismaService: PrismaService) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
   async handleCron() {

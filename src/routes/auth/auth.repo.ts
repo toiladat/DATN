@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { UserType, UserUpdateType } from 'src/shared/models/shared-user.model'
 import { PrismaService } from 'src/shared/services/prisma.service'
 import { DeviceType, RefreshTokenType } from './auth.model'
+import { UserNotFoundException } from '../user/user.error'
 
 @Injectable()
 export class AuthRepository {
@@ -56,7 +57,7 @@ export class AuthRepository {
     }
     // email không còn @unique trong Prisma schema → cần find trước rồi update by id
     const user = await this.prismaService.user.findFirst({ where: { email: where.email } })
-    if (!user) throw new Error('User not found')
+    if (!user) throw UserNotFoundException
     return this.prismaService.user.update({ where: { id: user.id }, data })
   }
 

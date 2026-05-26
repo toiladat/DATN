@@ -3,8 +3,15 @@ import { Cron, CronExpression } from '@nestjs/schedule'
 import { ethers } from 'ethers'
 import { PrismaService } from '../shared/services/prisma.service'
 import { ProjectRepository } from '../routes/project/project.repo'
-import { INVESTMENT_STATUS, WITHDRAWAL_STATUS } from '../shared/constants/project.constant'
+import {
+  INVESTMENT_STATUS,
+  WITHDRAWAL_STATUS,
+  PROJECT_STATUS,
+  MILESTONE_STATUS,
+} from '../shared/constants/project.constant'
 import envConfig from 'src/shared/config'
+import { RedisCacheService } from '../shared/services/redis-cache.service'
+
 @Injectable()
 export class BlockchainIndexerCronjob {
   private readonly logger = new Logger(BlockchainIndexerCronjob.name)
@@ -16,6 +23,7 @@ export class BlockchainIndexerCronjob {
   constructor(
     private readonly prisma: PrismaService,
     private readonly projectRepo: ProjectRepository,
+    private readonly redisCache: RedisCacheService,
   ) {
     // Khởi tạo RPC Provider
     const rpcUrl = envConfig.PROVIDER_URL
@@ -68,7 +76,7 @@ export class BlockchainIndexerCronjob {
 
       const pendingProjects = await this.prisma.project.findMany({
         where: {
-          status: 'APPROVED',
+          status: PROJECT_STATUS.APPROVED,
           launchTxHash: { not: null },
         },
       })
@@ -159,16 +167,16 @@ export class BlockchainIndexerCronjob {
             }
 
             if (isValid) {
-              await this.projectRepo.updateInvestmentStatus(investment.txHash, 'SUCCESS')
+              await this.projectRepo.updateInvestmentStatus(investment.txHash, INVESTMENT_STATUS.SUCCESS)
               this.logger.log(`TxHash ${investment.txHash} VERIFIED & SUCCESS`)
             } else {
               // Bắt quả tang gian lận -> FAILED
-              await this.projectRepo.updateInvestmentStatus(investment.txHash, 'FAILED')
+              await this.projectRepo.updateInvestmentStatus(investment.txHash, INVESTMENT_STATUS.FAILED)
               this.logger.warn(`TxHash ${investment.txHash} FAILED VALIDATION (Fake Tx/Tampered)`)
             }
           } else if (receipt.status === 0) {
             // Giao dịch trên Blockchain bị Reverted
-            await this.projectRepo.updateInvestmentStatus(investment.txHash, 'FAILED')
+            await this.projectRepo.updateInvestmentStatus(investment.txHash, INVESTMENT_STATUS.FAILED)
             this.logger.log(`TxHash ${investment.txHash} REVERTED -> Set FAILED`)
           }
         } catch (error) {
@@ -184,6 +192,12 @@ export class BlockchainIndexerCronjob {
           const receipt = await this.provider.getTransactionReceipt(project.launchTxHash)
           if (!receipt) continue
 
+          // Block Confirmations Check (Chống Re-orgs)
+          if (currentBlock - receipt.blockNumber < 5) {
+            this.logger.log(`Project Launch TxHash ${project.launchTxHash} has < 5 confirmations. Waiting...`)
+            continue
+          }
+
           if (receipt.status === 1) {
             // Success -> parse event ProjectCreated
             for (const log of receipt.logs) {
@@ -195,7 +209,7 @@ export class BlockchainIndexerCronjob {
                   if (projectIdHex === project.id || '0x' + projectIdHex === '0x' + project.id) {
                     await this.prisma.project.update({
                       where: { id: project.id },
-                      data: { status: 'PROGRESS' },
+                      data: { status: PROJECT_STATUS.PROGRESS },
                     })
                     this.logger.log(`Project ${project.id} is now PROGRESS!`)
                   }
@@ -221,6 +235,9 @@ export class BlockchainIndexerCronjob {
 
       // 5. Kiểm tra các Withdrawal đang PENDING
       await this.checkPendingWithdrawals(currentBlock)
+
+      // 6. Quét các sự kiện tự phục hồi dữ liệu (Self-healing Event Scanner)
+      await this.syncBlockchainEvents(currentBlock)
     } catch (error) {
       this.logger.error(`Error in cron job checkPendingInvestments: ${error.message}`)
     } finally {
@@ -304,19 +321,202 @@ export class BlockchainIndexerCronjob {
           }
 
           if (isValid) {
-            await this.projectRepo.updateWithdrawalStatus(withdrawal.txHash, 'SUCCESS')
+            await this.projectRepo.updateWithdrawalStatus(withdrawal.txHash, WITHDRAWAL_STATUS.SUCCESS)
             this.logger.log(`Withdrawal TxHash ${withdrawal.txHash} VERIFIED & SUCCESS -> Milestone WITHDRAWN`)
           } else {
-            await this.projectRepo.updateWithdrawalStatus(withdrawal.txHash, 'FAILED')
+            await this.projectRepo.updateWithdrawalStatus(withdrawal.txHash, WITHDRAWAL_STATUS.FAILED)
             this.logger.warn(`Withdrawal TxHash ${withdrawal.txHash} FAILED VALIDATION`)
           }
         } else if (receipt.status === 0) {
-          await this.projectRepo.updateWithdrawalStatus(withdrawal.txHash, 'FAILED')
+          await this.projectRepo.updateWithdrawalStatus(withdrawal.txHash, WITHDRAWAL_STATUS.FAILED)
           this.logger.log(`Withdrawal TxHash ${withdrawal.txHash} REVERTED -> Set FAILED`)
         }
       } catch (error) {
         this.logger.error(`Error checking withdrawal txHash ${withdrawal.txHash}: ${error.message}`)
       }
+    }
+  }
+
+  private async syncBlockchainEvents(currentBlock: number) {
+    try {
+      const redisKey = 'blockchain_indexer:last_indexed_block'
+      const lastIndexedBlock = await this.redisCache.get<number>(redisKey)
+
+      // Nếu chưa quét bao giờ, mặc định bắt đầu từ currentBlock - 50 để tránh quét quá rộng
+      let fromBlock = (lastIndexedBlock || currentBlock - 50) + 1
+      if (fromBlock < 1) fromBlock = 1
+
+      // Giới hạn dải quét tối đa 500 blocks mỗi tick để tránh treo RPC hoặc vượt giới hạn provider
+      let toBlock = currentBlock
+      if (toBlock - fromBlock > 500) {
+        toBlock = fromBlock + 500
+      }
+
+      if (fromBlock > toBlock) return
+
+      this.logger.log(`[EventScanner] Scanning events from block ${fromBlock} to ${toBlock}...`)
+
+      const logs = await this.withTimeout(
+        this.provider.getLogs({
+          address: this.contractAddress,
+          fromBlock: ethers.toBeHex(fromBlock),
+          toBlock: ethers.toBeHex(toBlock),
+        }),
+        15000, // Tăng timeout cho hàm quét lịch sử logs
+      )
+
+      for (const log of logs) {
+        try {
+          const parsedLog = this.iface.parseLog({ topics: log.topics as string[], data: log.data })
+          if (!parsedLog) continue
+
+          if (parsedLog.name === 'Contributed') {
+            const eventProjectId = parsedLog.args.id // BigInt
+            const eventContributor = parsedLog.args.contributor // string address
+            const eventAmount = parsedLog.args.amount // BigInt (wei)
+
+            // Chuyển BigInt thành chuỗi Hex chuẩn 24 ký tự của MongoDB
+            const projectIdHex = eventProjectId.toString(16).padStart(24, '0')
+            const amountEth = Number(ethers.formatEther(eventAmount))
+
+            // 1. Kiểm tra xem investment này đã được ghi nhận chưa bằng transactionHash
+            const existingInvestment = await this.prisma.investment.findUnique({
+              where: { txHash: log.transactionHash },
+            })
+
+            if (!existingInvestment) {
+              this.logger.log(
+                `[EventScanner] Found unregistered Contributed event in tx ${log.transactionHash}. Recovering...`,
+              )
+
+              // Tìm User bằng walletAddress (không phân biệt hoa thường)
+              const user = await this.prisma.user.findFirst({
+                where: { walletAddress: { equals: eventContributor, mode: 'insensitive' } },
+              })
+
+              if (user) {
+                // Tự động tạo bản ghi với trạng thái SUCCESS
+                await this.prisma.investment.create({
+                  data: {
+                    projectId: projectIdHex,
+                    userId: user.id,
+                    amount: amountEth,
+                    txHash: log.transactionHash,
+                    status: INVESTMENT_STATUS.SUCCESS,
+                    content: 'Auto-synchronized from Blockchain event',
+                  },
+                })
+
+                // Cập nhật số tiền gây quỹ của Project
+                const project = await this.prisma.project.update({
+                  where: { id: projectIdHex },
+                  data: {
+                    raisedAmount: { increment: amountEth },
+                  },
+                  select: { raisedAmount: true, totalAmount: true },
+                })
+
+                // Đổi trạng thái sang ACTIVE nếu đã đủ vốn
+                if (project.raisedAmount >= project.totalAmount - 0.000001) {
+                  await this.prisma.project.update({
+                    where: { id: projectIdHex },
+                    data: { status: PROJECT_STATUS.ACTIVE },
+                  })
+
+                  // Approve Milestone 1
+                  await this.prisma.milestone.updateMany({
+                    where: { projectId: projectIdHex, order: 1 },
+                    data: { status: MILESTONE_STATUS.APPROVED },
+                  })
+                }
+                this.logger.log(
+                  `[EventScanner] Successfully recovered missing investment: User(${user.id}), Project(${projectIdHex}), Amount(${amountEth})`,
+                )
+              } else {
+                this.logger.warn(
+                  `[EventScanner] Could not recover investment from tx ${log.transactionHash}: Contributor ${eventContributor} not found in DB.`,
+                )
+              }
+            }
+          } else if (parsedLog.name === 'MilestoneWithdrawn') {
+            const eventProjectId = parsedLog.args.projectId as bigint
+            const eventMilestoneIndex = Number(parsedLog.args.milestoneIndex) // 0-based
+            const eventAmount = parsedLog.args.amount // BigInt (wei)
+
+            const projectIdHex = eventProjectId.toString(16).padStart(24, '0')
+            const dbMilestoneOrder = eventMilestoneIndex + 1
+
+            // Kiểm tra xem withdrawalRecord này đã được ghi nhận chưa
+            const existingWithdrawal = await this.prisma.withdrawalRecord.findUnique({
+              where: { txHash: log.transactionHash },
+            })
+
+            if (!existingWithdrawal) {
+              this.logger.log(
+                `[EventScanner] Found unregistered MilestoneWithdrawn event in tx ${log.transactionHash}. Recovering...`,
+              )
+
+              // Tìm Milestone để lấy milestoneId
+              const milestone = await this.prisma.milestone.findFirst({
+                where: { projectId: projectIdHex, order: dbMilestoneOrder },
+              })
+
+              if (milestone) {
+                // Tạo WithdrawalRecord mới ở trạng thái SUCCESS
+                await this.prisma.withdrawalRecord.create({
+                  data: {
+                    milestoneId: milestone.id,
+                    projectId: projectIdHex,
+                    txHash: log.transactionHash,
+                    amount: Number(ethers.formatEther(eventAmount)),
+                    status: WITHDRAWAL_STATUS.SUCCESS,
+                  },
+                })
+
+                // Cập nhật Milestone status = WITHDRAWN
+                await this.prisma.milestone.update({
+                  where: { id: milestone.id },
+                  data: { status: MILESTONE_STATUS.WITHDRAWN },
+                })
+
+                // Kiểm tra hoàn thành dự án
+                const totalMilestones = await this.prisma.milestone.count({
+                  where: { projectId: projectIdHex },
+                })
+
+                const withdrawnMilestones = await this.prisma.milestone.count({
+                  where: {
+                    projectId: projectIdHex,
+                    status: MILESTONE_STATUS.WITHDRAWN,
+                  },
+                })
+
+                if (totalMilestones > 0 && withdrawnMilestones === totalMilestones) {
+                  await this.prisma.project.update({
+                    where: { id: projectIdHex },
+                    data: { status: PROJECT_STATUS.SUCCESS },
+                  })
+                  this.logger.log(`[EventScanner] Project ${projectIdHex} completed all milestones -> Status SUCCESS`)
+                }
+                this.logger.log(
+                  `[EventScanner] Successfully recovered missing withdrawal: Milestone(${milestone.id}), Project(${projectIdHex})`,
+                )
+              } else {
+                this.logger.warn(
+                  `[EventScanner] Could not recover withdrawal from tx ${log.transactionHash}: Milestone not found.`,
+                )
+              }
+            }
+          }
+        } catch (err: any) {
+          this.logger.error(`[EventScanner] Error processing log in tx ${log.transactionHash}: ${err.message}`)
+        }
+      }
+
+      // Lưu lại block mới nhất đã quét thành công vào Redis
+      await this.redisCache.set(redisKey, toBlock)
+    } catch (error: any) {
+      this.logger.error(`[EventScanner] Failed to scan blockchain events: ${error.message}`)
     }
   }
 }

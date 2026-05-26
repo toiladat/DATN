@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { PrismaService } from 'src/shared/services/prisma.service'
 import { RedisCacheService } from 'src/shared/services/redis-cache.service'
+import { PROJECT_STATUS, MILESTONE_STATUS, WITHDRAWAL_STATUS } from 'src/shared/constants/project.constant'
 
 export type ActivityType = 'PROJECT_LAUNCHED' | 'WITHDRAWAL_REQUEST' | 'MILESTONE_COMPLETED'
 
@@ -96,22 +97,22 @@ export class AdminDashboardService {
           // Project stats individually
           this.prisma.project.count({
             where: {
-              status: { in: ['PENDING', 'APPROVED'] },
+              status: { in: [PROJECT_STATUS.PENDING, PROJECT_STATUS.APPROVED] },
               OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
             },
           }),
           this.prisma.project.count({
-            where: { status: 'PROGRESS', OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }] },
+            where: { status: PROJECT_STATUS.PROGRESS, OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }] },
           }),
           this.prisma.project.count({
-            where: { status: 'ACTIVE', OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }] },
+            where: { status: PROJECT_STATUS.ACTIVE, OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }] },
           }),
           this.prisma.project.count({
-            where: { status: 'SUCCESS', OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }] },
+            where: { status: PROJECT_STATUS.SUCCESS, OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }] },
           }),
           this.prisma.project.count({
             where: {
-              status: { in: ['FAILED', 'EXPIRED'] },
+              status: { in: [PROJECT_STATUS.FAILED, PROJECT_STATUS.EXPIRED] },
               OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
             },
           }),
@@ -119,7 +120,7 @@ export class AdminDashboardService {
           // Pending Projects = chờ admin duyệt (only PENDING)
           this.prisma.project.count({
             where: {
-              status: 'PENDING',
+              status: PROJECT_STATUS.PENDING,
               OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
             },
           }),
@@ -127,16 +128,16 @@ export class AdminDashboardService {
           // Pending Withdrawals = chờ admin duyệt
           this.prisma.withdrawalRecord.count({
             where: {
-              status: 'PENDING',
+              status: WITHDRAWAL_STATUS.PENDING,
             },
           }),
 
           // Pending Milestones = milestone đang chờ admin duyệt (status PROGRESS, order > 1, project ACTIVE)
           this.prisma.milestone.count({
             where: {
-              status: 'PROGRESS',
+              status: MILESTONE_STATUS.PROGRESS,
               order: { gt: 1 },
-              project: { status: 'ACTIVE' },
+              project: { status: PROJECT_STATUS.ACTIVE },
             },
           }),
 
@@ -167,7 +168,7 @@ export class AdminDashboardService {
           this.prisma.milestoneUpdate.findMany({
             where: {
               milestone: {
-                status: { in: ['COMPLETED', 'WITHDRAWN'] },
+                status: { in: [MILESTONE_STATUS.COMPLETED, MILESTONE_STATUS.WITHDRAWN] },
               },
             },
             select: {

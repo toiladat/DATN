@@ -5,7 +5,7 @@ import { PrismaService } from 'src/shared/services/prisma.service'
 @Injectable()
 export class RemoveRefreshTokenCronjob {
   private readonly logger = new Logger(RemoveRefreshTokenCronjob.name)
-  constructor(private prismaService: PrismaService) {}
+  constructor(private readonly prismaService: PrismaService) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_1AM)
   async handleCron() {

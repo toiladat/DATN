@@ -4,7 +4,16 @@ import { ProjectRepository } from './project.repo'
 import { CreateProjectBodyType, UpdateMilestoneProgressBodyType } from './project.model'
 import { EmailService } from 'src/shared/services/email.service'
 import envConfig from 'src/shared/config'
-import { MilestoneNotFoundException, BlockchainCancelProjectException } from './project.error'
+import {
+  MilestoneNotFoundException,
+  BlockchainCancelProjectException,
+  ProjectNotFoundException,
+  InvalidProjectStatusException,
+  MilestoneNotApprovedException,
+  MilestoneAlreadyWithdrawnException,
+  DuplicateWithdrawalTxException,
+} from './project.error'
+import { PROJECT_STATUS, MILESTONE_STATUS } from 'src/shared/constants/project.constant'
 
 @Injectable()
 export class ProjectService {
@@ -84,7 +93,7 @@ export class ProjectService {
     }
 
     const project = milestoneInfo.project
-    if (project.status === 'ACTIVE') {
+    if (project.status === PROJECT_STATUS.ACTIVE) {
       const privateKey = envConfig.ADMIN_PRIVATE_KEY
       const rpcUrl = envConfig.PROVIDER_URL
       const contractAddress = envConfig.CROWDFUNDING_ADDRESS
@@ -196,6 +205,33 @@ export class ProjectService {
   }
 
   async withdrawMilestone(userId: string, projectId: string, milestoneId: string, txHash: string) {
-    return this.projectRepo.submitWithdrawMilestone(userId, projectId, milestoneId, txHash)
+    // 1. Verify project tồn tại và userId là owner
+    const project = await this.projectRepo.getProjectForOwner(projectId, userId)
+    if (!project) throw ProjectNotFoundException
+
+    // 2. Verify project.status === ACTIVE
+    if (project.status !== PROJECT_STATUS.ACTIVE) {
+      throw InvalidProjectStatusException
+    }
+
+    // 3. Tìm milestone và verify status === APPROVED
+    const milestone = await this.projectRepo.getMilestoneForProject(milestoneId, projectId)
+    if (!milestone) throw MilestoneNotFoundException
+
+    if (milestone.status !== MILESTONE_STATUS.APPROVED) {
+      throw MilestoneNotApprovedException
+    }
+
+    // 4. Check đã có WithdrawalRecord chưa (tránh withdraw 2 lần)
+    if (milestone.withdrawalRecord !== null) {
+      throw MilestoneAlreadyWithdrawnException
+    }
+
+    // 5. Check duplicate txHash
+    const existingWithdrawal = await this.projectRepo.getWithdrawalRecordByTx(txHash)
+    if (existingWithdrawal) throw DuplicateWithdrawalTxException
+
+    // 6. Tạo WithdrawalRecord với status PENDING qua Repository
+    return this.projectRepo.submitWithdrawMilestone(milestoneId, projectId, txHash, milestone.amount)
   }
 }

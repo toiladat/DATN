@@ -8,6 +8,13 @@ import {
   GetAdminUserDetailResType,
 } from './user.model'
 import { InvestmentStatus } from '@prisma/client'
+import {
+  PROJECT_STATUS,
+  MILESTONE_STATUS,
+  INVESTMENT_STATUS,
+  WITHDRAWAL_STATUS,
+} from 'src/shared/constants/project.constant'
+import { UserNotFoundException, ProjectNotFoundForUserException } from './user.error'
 @Injectable()
 export class UserRepo {
   constructor(private prismaService: PrismaService) {}
@@ -92,7 +99,7 @@ export class UserRepo {
     })
 
     if (!user) {
-      throw new Error('User not found')
+      throw UserNotFoundException
     }
 
     const projectsGroup = await this.prismaService.project.groupBy({
@@ -121,21 +128,21 @@ export class UserRepo {
       totalRaised += group._sum.raisedAmount || 0
 
       switch (group.status) {
-        case 'SUCCESS':
+        case PROJECT_STATUS.SUCCESS:
           success += count
           break
-        case 'FAILED':
-        case 'EXPIRED':
+        case PROJECT_STATUS.FAILED:
+        case PROJECT_STATUS.EXPIRED:
           failed += count
           break
-        case 'PENDING':
-        case 'APPROVED':
+        case PROJECT_STATUS.PENDING:
+        case PROJECT_STATUS.APPROVED:
           pending += count
           break
-        case 'PROGRESS':
+        case PROJECT_STATUS.PROGRESS:
           fundraising += count
           break
-        case 'ACTIVE':
+        case PROJECT_STATUS.ACTIVE:
           executing += count
           break
       }
@@ -144,7 +151,7 @@ export class UserRepo {
     const investmentsAgg = await this.prismaService.investment.aggregate({
       where: {
         userId: id,
-        status: 'SUCCESS',
+        status: INVESTMENT_STATUS.SUCCESS,
         OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
       },
       _count: true,
@@ -160,7 +167,7 @@ export class UserRepo {
             userId: id,
           },
         },
-        status: 'SUCCESS',
+        status: WITHDRAWAL_STATUS.SUCCESS,
       },
       _sum: {
         amount: true,
@@ -215,7 +222,7 @@ export class UserRepo {
     if (status) {
       whereClause.status = status
     } else {
-      whereClause.status = { in: ['ACTIVE', 'SUCCESS'] }
+      whereClause.status = { in: [PROJECT_STATUS.ACTIVE, PROJECT_STATUS.SUCCESS] }
     }
 
     const projects = await this.prismaService.project.findMany({
@@ -230,7 +237,7 @@ export class UserRepo {
       data: projects.map((p) => {
         const totalPhases = p.milestones.length
         const currentPhase = p.milestones.filter((m) =>
-          ['COMPLETED', 'APPROVED', 'WITHDRAWN'].includes(m.status),
+          [MILESTONE_STATUS.COMPLETED, MILESTONE_STATUS.APPROVED, MILESTONE_STATUS.WITHDRAWN].includes(m.status as any),
         ).length
         const daysLeft = Math.max(
           0,
@@ -255,7 +262,7 @@ export class UserRepo {
       where: { id: projectId, userId },
     })
     if (!project) {
-      throw new Error('Project not found for this user')
+      throw ProjectNotFoundForUserException
     }
 
     const withdrawals = await this.prismaService.withdrawalRecord.findMany({
@@ -350,8 +357,9 @@ export class UserRepo {
         endDate: p.endDate.getTime(),
         updatedAt: p.updatedAt.getTime(),
         totalMilestones: p.milestones.length,
-        completedMilestones: p.milestones.filter((m) => ['COMPLETED', 'APPROVED', 'WITHDRAWN'].includes(m.status))
-          .length,
+        completedMilestones: p.milestones.filter((m) =>
+          [MILESTONE_STATUS.COMPLETED, MILESTONE_STATUS.APPROVED, MILESTONE_STATUS.WITHDRAWN].includes(m.status as any),
+        ).length,
       })),
     }
   }

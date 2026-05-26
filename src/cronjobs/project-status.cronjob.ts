@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule'
 import { ethers } from 'ethers'
 import { PrismaService } from 'src/shared/services/prisma.service'
 import envConfig from 'src/shared/config'
+import { PROJECT_STATUS } from 'src/shared/constants/project.constant'
 
 @Injectable()
 export class ProjectStatusCronjob {
@@ -36,7 +37,7 @@ export class ProjectStatusCronjob {
       // 1. Tìm các dự án đang ở trạng thái PROGRESS
       const progressProjects = await this.prisma.project.findMany({
         where: {
-          status: 'PROGRESS',
+          status: PROJECT_STATUS.PROGRESS,
           OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
         },
       })
@@ -68,7 +69,7 @@ export class ProjectStatusCronjob {
             await this.prisma.project.update({
               where: { id: project.id },
               data: {
-                status: 'FAILED',
+                status: PROJECT_STATUS.FAILED,
                 rejectReason: 'Quá hạn gọi vốn nhưng chưa đạt mục tiêu',
               },
             })

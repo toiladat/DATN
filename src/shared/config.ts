@@ -21,7 +21,7 @@ if (!process.env.DATABASE_URL) {
   throw new Error('❌ DATABASE_URL is missing')
 }
 
-const conifgSchema = z.object({
+const configSchema = z.object({
   DATABASE_URL: z.string(),
   ACCESS_TOKEN_SECRET: z.string(),
   ACCESS_TOKEN_EXPIRES_IN: z.string(),
@@ -52,7 +52,7 @@ const conifgSchema = z.object({
   ADMIN_PRIVATE_KEY: z.string(),
 })
 
-const configServer = conifgSchema.safeParse(process.env)
+const configServer = configSchema.safeParse(process.env)
 
 if (!configServer.success) {
   console.log('Cac gia tri trong .env khong hop le')

@@ -1,4 +1,4 @@
-import { ForbiddenException, UnprocessableEntityException } from '@nestjs/common'
+import { ForbiddenException, UnprocessableEntityException, NotFoundException } from '@nestjs/common'
 
 export const UserAlreadyExistsException = new UnprocessableEntityException([
   {
@@ -23,3 +23,6 @@ export const RoleNotFoundException = new UnprocessableEntityException([
 
 // Không thể xóa hoặc cập nhật chính bản thân mình
 export const CannotUpdateOrDeleteYourselfException = new ForbiddenException('Error.CannotUpdateOrDeleteYourself')
+
+export const UserNotFoundException = new NotFoundException('Error.UserNotFound')
+export const ProjectNotFoundForUserException = new NotFoundException('Project not found for this user')

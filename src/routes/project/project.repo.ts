@@ -20,9 +20,13 @@ import {
   MilestoneNotFoundException,
   MilestoneNotUnlockedException,
   MilestoneAlreadyFinalizedException,
-  MilestoneNotApprovedException,
-  MilestoneAlreadyWithdrawnException,
-  DuplicateWithdrawalTxException,
+  ProjectNotRefundableException,
+  NoInvestmentsToRefundException,
+  BlockchainTxPendingOrFailedException,
+  BlockchainVerificationException,
+  ReviewNotFoundException,
+  UnauthorizedReviewAccessException,
+  BlockchainCancelProjectException,
 } from './project.error'
 import { UpdateMilestoneProgressBodyType } from './project.model'
 @Injectable()
@@ -112,7 +116,7 @@ export class ProjectRepository {
   async approveProject(projectId: string) {
     return this.prisma.project.update({
       where: { id: projectId },
-      data: { status: 'APPROVED' },
+      data: { status: PROJECT_STATUS.APPROVED },
       include: { user: true },
     })
   }
@@ -120,7 +124,7 @@ export class ProjectRepository {
   async getPendingProjects() {
     const projects = await this.prisma.project.findMany({
       where: {
-        status: 'PENDING',
+        status: PROJECT_STATUS.PENDING,
         OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
       },
       include: {
@@ -172,24 +176,50 @@ export class ProjectRepository {
 
   async rejectProject(projectId: string, reason: string) {
     const project = await this.prisma.project.findUnique({ where: { id: projectId } })
-    if (project && (project.status === 'PROGRESS' || project.status === 'ACTIVE')) {
+    if (project && (project.status === PROJECT_STATUS.PROGRESS || project.status === PROJECT_STATUS.ACTIVE)) {
       try {
         const provider = new ethers.JsonRpcProvider(envConfig.PROVIDER_URL)
         const wallet = new ethers.Wallet(envConfig.ADMIN_PRIVATE_KEY, provider)
         const contractAbi = ['function adminCancelProject(uint256 _projectId) external']
         const contract = new ethers.Contract(envConfig.CROWDFUNDING_ADDRESS, contractAbi, wallet)
+
+        // 1. Gửi transaction lên blockchain mempool (mất < 500ms)
         const tx = await contract.adminCancelProject(BigInt('0x' + projectId))
-        await tx.wait()
+
+        // 2. Chạy luồng chờ đợi xác nhận blockchain chạy ngầm
+        tx.wait()
+          .then(async (receipt: any) => {
+            if (receipt && receipt.status === 1) {
+              await this.prisma.project.update({
+                where: { id: projectId },
+                data: { status: PROJECT_STATUS.FAILED, rejectReason: reason },
+              })
+              console.log(`[rejectProject] Blockchain cancel confirmed. Project ${projectId} marked FAILED in DB.`)
+            } else {
+              console.error(`[rejectProject] Blockchain cancel transaction reverted for project ${projectId}`)
+            }
+          })
+          .catch((err: any) => {
+            console.error(
+              `[rejectProject] Error waiting for blockchain cancellation of project ${projectId}:`,
+              err.message,
+            )
+          })
       } catch (e) {
-        console.error('Failed to cancel project on blockchain:', e)
-        // We still continue to update the DB even if blockchain fails, or we could throw.
-        // We log error here.
+        console.error('Failed to initiate reject on blockchain:', e)
+        throw BlockchainCancelProjectException
+      }
+
+      return {
+        ...project,
+        status: PROJECT_STATUS.FAILED,
+        rejectReason: reason,
       }
     }
 
     return this.prisma.project.update({
       where: { id: projectId },
-      data: { status: 'FAILED', rejectReason: reason },
+      data: { status: PROJECT_STATUS.FAILED, rejectReason: reason },
       include: { user: true },
     })
   }
@@ -200,9 +230,9 @@ export class ProjectRepository {
     // Tìm các Milestone N đang chờ duyệt (status: PROGRESS) và order > 1
     const pendingMilestones = await this.prisma.milestone.findMany({
       where: {
-        status: 'PROGRESS',
+        status: MILESTONE_STATUS.PROGRESS,
         order: { gt: 1 },
-        project: { status: 'ACTIVE' },
+        project: { status: PROJECT_STATUS.ACTIVE },
       },
       include: {
         project: {
@@ -238,7 +268,7 @@ export class ProjectRepository {
   async approveMilestone(milestoneId: string) {
     return this.prisma.milestone.update({
       where: { id: milestoneId },
-      data: { status: 'APPROVED' },
+      data: { status: MILESTONE_STATUS.APPROVED },
       include: { project: { include: { user: true } } },
     })
   }
@@ -254,25 +284,13 @@ export class ProjectRepository {
     return this.prisma.$transaction(async (tx) => {
       const milestone = await tx.milestone.update({
         where: { id: milestoneId },
-        data: { status: 'CANCELLED' },
+        data: { status: MILESTONE_STATUS.CANCELLED },
         include: { project: { include: { user: true } } },
       })
       await tx.project.update({
         where: { id: milestone.projectId },
-        data: { status: 'FAILED', rejectReason: reason },
+        data: { status: PROJECT_STATUS.FAILED, rejectReason: reason },
       })
-
-      // Try to cancel on blockchain
-      try {
-        const provider = new ethers.JsonRpcProvider(envConfig.PROVIDER_URL)
-        const wallet = new ethers.Wallet(envConfig.ADMIN_PRIVATE_KEY, provider)
-        const contractAbi = ['function adminCancelProject(uint256 _projectId) external']
-        const contract = new ethers.Contract(envConfig.CROWDFUNDING_ADDRESS, contractAbi, wallet)
-        const txHash = await contract.adminCancelProject(BigInt('0x' + milestone.projectId))
-        await txHash.wait()
-      } catch (e) {
-        console.error('Failed to cancel project on blockchain:', e)
-      }
 
       return milestone
     })
@@ -674,7 +692,7 @@ export class ProjectRepository {
     })
 
     if (!project || (project.status !== PROJECT_STATUS.FAILED && project.status !== PROJECT_STATUS.EXPIRED)) {
-      throw new Error('Project is not failed or expired. Cannot refund.')
+      throw ProjectNotRefundableException
     }
 
     // 2. Fetch the user's SUCCESS investments in this project
@@ -687,19 +705,20 @@ export class ProjectRepository {
     })
 
     if (investments.length === 0) {
-      throw new Error('No successful investments found to refund.')
+      throw NoInvestmentsToRefundException
     }
 
     // 3. Verify on blockchain
+    let receipt: any
     try {
       const provider = new ethers.JsonRpcProvider(envConfig.PROVIDER_URL)
-      const receipt = await provider.getTransactionReceipt(txHash)
+      receipt = await provider.getTransactionReceipt(txHash)
+    } catch (e: any) {
+      throw new BlockchainVerificationException(e.message)
+    }
 
-      if (!receipt || receipt.status !== 1) {
-        throw new Error('Transaction is pending or failed on blockchain.')
-      }
-    } catch (e) {
-      throw new Error('Failed to verify transaction on blockchain: ' + e.message)
+    if (!receipt || receipt.status !== 1) {
+      throw BlockchainTxPendingOrFailedException
     }
 
     // 4. Update them to REFUNDED
@@ -848,13 +867,13 @@ export class ProjectRepository {
         if (project.raisedAmount >= project.totalAmount - 0.000001) {
           await tx.project.update({
             where: { id: investment.projectId },
-            data: { status: 'ACTIVE' },
+            data: { status: PROJECT_STATUS.ACTIVE },
           })
 
           // Tự động Approve Milestone 1 để Founder rút tiền khởi động
           await tx.milestone.updateMany({
             where: { projectId: investment.projectId, order: 1 },
-            data: { status: 'APPROVED' },
+            data: { status: MILESTONE_STATUS.APPROVED },
           })
         }
       }
@@ -935,8 +954,8 @@ export class ProjectRepository {
 
   async updateReview(userId: string, reviewId: string, content: string) {
     const review = await this.prisma.review.findFirst({ where: { id: reviewId } })
-    if (!review) throw new Error('Review not found')
-    if (review.userId !== userId) throw new Error('Unauthorized')
+    if (!review) throw ReviewNotFoundException
+    if (review.userId !== userId) throw UnauthorizedReviewAccessException
 
     const updated = await this.prisma.review.update({
       where: { id: reviewId },
@@ -947,8 +966,8 @@ export class ProjectRepository {
 
   async deleteReview(userId: string, reviewId: string) {
     const review = await this.prisma.review.findFirst({ where: { id: reviewId } })
-    if (!review) throw new Error('Review not found')
-    if (review.userId !== userId) throw new Error('Unauthorized')
+    if (!review) throw ReviewNotFoundException
+    if (review.userId !== userId) throw UnauthorizedReviewAccessException
 
     // Cascade delete replies first
     await this.prisma.review.deleteMany({
@@ -960,53 +979,40 @@ export class ProjectRepository {
     })
   }
 
-  // ─── WITHDRAWAL ───────────────────────────────────────────────────────────────
+  // ─── QUERY HELPERS FOR SERVICE VALIDATIONS ───────────────────────────────────
 
-  async submitWithdrawMilestone(userId: string, projectId: string, milestoneId: string, txHash: string) {
-    // 1. Verify project tồn tại và userId là owner
-    const project = await this.prisma.project.findFirst({
+  async getProjectForOwner(projectId: string, userId: string) {
+    return this.prisma.project.findFirst({
       where: {
         id: projectId,
         userId,
         OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
       },
     })
-    if (!project) throw ProjectNotFoundException
+  }
 
-    // 2. Verify project.status === ACTIVE
-    if (project.status !== PROJECT_STATUS.ACTIVE) {
-      throw InvalidProjectStatusException
-    }
-
-    // 3. Tìm milestone và verify status === APPROVED
-    const milestone = await this.prisma.milestone.findFirst({
+  async getMilestoneForProject(milestoneId: string, projectId: string) {
+    return this.prisma.milestone.findFirst({
       where: { id: milestoneId, projectId },
       include: { withdrawalRecord: true },
     })
-    if (!milestone) throw MilestoneNotFoundException
+  }
 
-    if (milestone.status !== MILESTONE_STATUS.APPROVED) {
-      throw MilestoneNotApprovedException
-    }
-
-    // 4. Check đã có WithdrawalRecord chưa (tránh withdraw 2 lần)
-    if (milestone.withdrawalRecord !== null) {
-      throw MilestoneAlreadyWithdrawnException
-    }
-
-    // 5. Check duplicate txHash
-    const existingWithdrawal = await this.prisma.withdrawalRecord.findUnique({
+  async getWithdrawalRecordByTx(txHash: string) {
+    return this.prisma.withdrawalRecord.findUnique({
       where: { txHash },
     })
-    if (existingWithdrawal) throw DuplicateWithdrawalTxException
+  }
 
-    // 6. Tạo WithdrawalRecord với status PENDING
+  // ─── WITHDRAWAL ───────────────────────────────────────────────────────────────
+
+  async submitWithdrawMilestone(milestoneId: string, projectId: string, txHash: string, amount: number) {
     return this.prisma.withdrawalRecord.create({
       data: {
         milestoneId,
         projectId,
         txHash,
-        amount: milestone.amount,
+        amount,
         status: WITHDRAWAL_STATUS.PENDING,
       },
     })
