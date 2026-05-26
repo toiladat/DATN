@@ -20,6 +20,8 @@ export class UserRepo {
   constructor(private prismaService: PrismaService) {}
 
   async findById(id: string): Promise<UserProfileType | null> {
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(id)
+    if (!isObjectId) return null
     return this.prismaService.user.findUnique({
       where: { id },
     })

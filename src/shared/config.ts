@@ -50,6 +50,7 @@ const configSchema = z.object({
   CROWDFUNDING_ADDRESS: z.string(),
   PROVIDER_URL: z.string(),
   ADMIN_PRIVATE_KEY: z.string(),
+  GEMINI_API_KEY: z.string(),
 })
 
 const configServer = configSchema.safeParse(process.env)

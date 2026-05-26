@@ -296,9 +296,20 @@ export class ProjectRepository {
     })
   }
 
-  async submitLaunchTx(projectId: string, txHash: string) {
+  async submitLaunchTx(projectIdOrSlug: string, txHash: string) {
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(projectIdOrSlug)
+    let targetProjectId = projectIdOrSlug
+    if (!isObjectId) {
+      const project = await this.prisma.project.findFirst({
+        where: { slug: projectIdOrSlug },
+        select: { id: true },
+      })
+      if (!project) throw ProjectNotFoundException
+      targetProjectId = project.id
+    }
+
     return this.prisma.project.update({
-      where: { id: projectId },
+      where: { id: targetProjectId },
       data: { launchTxHash: txHash },
     })
   }
@@ -573,10 +584,11 @@ export class ProjectRepository {
     }
   }
 
-  async deleteProject(id: string, userId: string) {
+  async deleteProject(idOrSlug: string, userId: string) {
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(idOrSlug)
     const project = await this.prisma.project.findFirst({
       where: {
-        id,
+        ...(isObjectId ? { id: idOrSlug } : { slug: idOrSlug }),
         OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
       },
     })
@@ -590,15 +602,16 @@ export class ProjectRepository {
 
     // Soft delete
     return this.prisma.project.update({
-      where: { id },
+      where: { id: project.id },
       data: { deletedAt: new Date() },
     })
   }
 
-  async getProjectById(id: string) {
+  async getProjectById(idOrSlug: string) {
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(idOrSlug)
     const project = await this.prisma.project.findFirst({
       where: {
-        id,
+        ...(isObjectId ? { id: idOrSlug } : { slug: idOrSlug }),
         OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
       },
       include: {
@@ -684,11 +697,14 @@ export class ProjectRepository {
     }
   }
 
-  async processRefund(userId: string, projectId: string, txHash: string) {
+  async processRefund(userId: string, projectIdOrSlug: string, txHash: string) {
     // 1. Verify the project status
-    const project = await this.prisma.project.findUnique({
-      where: { id: projectId },
-      select: { status: true },
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(projectIdOrSlug)
+    const project = await this.prisma.project.findFirst({
+      where: {
+        ...(isObjectId ? { id: projectIdOrSlug } : { slug: projectIdOrSlug }),
+      },
+      select: { id: true, status: true },
     })
 
     if (!project || (project.status !== PROJECT_STATUS.FAILED && project.status !== PROJECT_STATUS.EXPIRED)) {
@@ -699,7 +715,7 @@ export class ProjectRepository {
     const investments = await this.prisma.investment.findMany({
       where: {
         userId,
-        projectId,
+        projectId: project.id,
         status: INVESTMENT_STATUS.SUCCESS,
       },
     })
@@ -821,13 +837,19 @@ export class ProjectRepository {
     })
   }
 
-  async createInvestment(projectId: string, userId: string, amount: number, txHash: string, content?: string) {
-    const project = await this.prisma.project.findUnique({ where: { id: projectId } })
+  async createInvestment(projectIdOrSlug: string, userId: string, amount: number, txHash: string, content?: string) {
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(projectIdOrSlug)
+    const project = await this.prisma.project.findFirst({
+      where: {
+        ...(isObjectId ? { id: projectIdOrSlug } : { slug: projectIdOrSlug }),
+        OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
+      },
+    })
     if (!project) throw ProjectNotFoundException
 
     return this.prisma.investment.create({
       data: {
-        projectId,
+        projectId: project.id,
         userId,
         amount,
         txHash,
@@ -882,29 +904,62 @@ export class ProjectRepository {
     })
   }
 
-  async likeProject(projectId: string, userId: string) {
+  async likeProject(projectIdOrSlug: string, userId: string) {
+    let targetProjectId = projectIdOrSlug
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(projectIdOrSlug)
+    if (!isObjectId) {
+      const project = await this.prisma.project.findFirst({
+        where: { slug: projectIdOrSlug },
+        select: { id: true },
+      })
+      if (!project) throw ProjectNotFoundException
+      targetProjectId = project.id
+    }
+
     const existingLike = await this.prisma.like.findUnique({
       where: {
-        projectId_userId: { projectId, userId },
+        projectId_userId: { projectId: targetProjectId, userId },
       },
     })
     if (!existingLike) {
       await this.prisma.like.create({
-        data: { projectId, userId },
+        data: { projectId: targetProjectId, userId },
       })
     }
   }
 
-  async unlikeProject(projectId: string, userId: string) {
+  async unlikeProject(projectIdOrSlug: string, userId: string) {
+    let targetProjectId = projectIdOrSlug
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(projectIdOrSlug)
+    if (!isObjectId) {
+      const project = await this.prisma.project.findFirst({
+        where: { slug: projectIdOrSlug },
+        select: { id: true },
+      })
+      if (!project) return
+      targetProjectId = project.id
+    }
+
     await this.prisma.like.deleteMany({
-      where: { projectId, userId },
+      where: { projectId: targetProjectId, userId },
     })
   }
 
-  async getReviews(projectId: string) {
+  async getReviews(projectIdOrSlug: string) {
+    let targetProjectId = projectIdOrSlug
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(projectIdOrSlug)
+    if (!isObjectId) {
+      const project = await this.prisma.project.findFirst({
+        where: { slug: projectIdOrSlug },
+        select: { id: true },
+      })
+      if (!project) return []
+      targetProjectId = project.id
+    }
+
     const reviews = await this.prisma.review.findMany({
       where: {
-        projectId,
+        projectId: targetProjectId,
         // In MongoDB, parentId can be null OR absent (field not set at all)
         // Prisma `{ parentId: null }` only matches explicit null, not missing fields
         OR: [{ parentId: null }, { parentId: { isSet: false } }],
@@ -935,11 +990,22 @@ export class ProjectRepository {
     }))
   }
 
-  async createReview(userId: string, projectId: string, content: string, parentId?: string) {
+  async createReview(userId: string, projectIdOrSlug: string, content: string, parentId?: string) {
+    let targetProjectId = projectIdOrSlug
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(projectIdOrSlug)
+    if (!isObjectId) {
+      const project = await this.prisma.project.findFirst({
+        where: { slug: projectIdOrSlug },
+        select: { id: true },
+      })
+      if (!project) throw ProjectNotFoundException
+      targetProjectId = project.id
+    }
+
     const review = await this.prisma.review.create({
       data: {
         userId,
-        projectId,
+        projectId: targetProjectId,
         content,
         // Normalize to null (not undefined) so Prisma/MongoDB stores explicit null
         // This prevents the "absent field" vs null mismatch in future queries
@@ -981,10 +1047,11 @@ export class ProjectRepository {
 
   // ─── QUERY HELPERS FOR SERVICE VALIDATIONS ───────────────────────────────────
 
-  async getProjectForOwner(projectId: string, userId: string) {
+  async getProjectForOwner(projectIdOrSlug: string, userId: string) {
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(projectIdOrSlug)
     return this.prisma.project.findFirst({
       where: {
-        id: projectId,
+        ...(isObjectId ? { id: projectIdOrSlug } : { slug: projectIdOrSlug }),
         userId,
         OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
       },

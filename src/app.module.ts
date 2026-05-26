@@ -11,6 +11,7 @@ import { BlockchainIndexerCronjob } from './cronjobs/blockchain-indexer.cronjob'
 import { ProjectStatusCronjob } from './cronjobs/project-status.cronjob'
 import { AdminAuthModule } from './routes/admin-auth/admin-auth.module'
 import { AuthModule } from './routes/auth/auth.module'
+import { AiModule } from './routes/ai/ai.module'
 
 import { UploadModule } from './routes/upload/upload.module'
 import { ProjectModule } from './routes/project/project.module'
@@ -52,6 +53,7 @@ import { SharedModule } from './shared/shared.module'
     ProjectModule,
     CategoryModule,
     AdminDashboardModule,
+    AiModule,
   ],
   controllers: [],
   providers: [

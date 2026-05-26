@@ -355,4 +355,29 @@ model AdminRefreshToken {
 
   @@index([expiresAt])
 }
+
+model SystemKnowledge {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  category  String   // investment-rules, milestone-guide, faq, fees
+  question  String
+  answer    String
+  keywords  String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([keywords])
+}
+
+model AiChatSession {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String?  @db.ObjectId
+  ipAddress String
+  messages  Json[]   // [{ sender: "user" | "ai", text: string, timestamp: DateTime }]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([ipAddress])
+}
+
  
