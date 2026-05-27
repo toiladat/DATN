@@ -128,38 +128,30 @@ export class AiService {
 
     // 5. Cấu trúc Prompt an toàn
     const systemInstruction =
-      `Bạn là trợ lý ảo AI thông minh của nền tảng gọi vốn cộng đồng Web3 FundHive (VAULT_PRIME).\n` +
-      `Hãy sử dụng NGỮ CẢNH (Context) và LỊCH SỬ CHAT dưới đây để trả lời câu hỏi của người dùng.\n\n` +
+      `Bạn là trợ lý ảo AI thông minh của nền tảng gọi vốn cộng đồng Web3 FundHive.\n` +
+      `Hãy sử dụng NGỮ CẢNH HỆ THỐNG dưới đây để trả lời câu hỏi của người dùng một cách chính xác.\n\n` +
       `NGỮ CẢNH HỆ THỐNG:\n` +
       `${faqContext}\n\n` +
       `${publicProjectsContext}\n\n` +
       `${userContextString}\n\n` +
       `QUY TẮC TRẢ LỜI & ĐỊNH DẠNG (CỰC KỲ QUAN TRỌNG):\n` +
-      `1. TUYỆT ĐỐI KHÔNG dùng cú pháp Markdown thô như dấu sao (**), dấu gạch ngang thô (-), dấu thăng (#) hay ký tự huyền (\`). Hãy trả về văn bản tiếng Việt thuần tự nhiên, ngăn cách bằng emoji hoặc xuống dòng bình thường.\n` +
-      `2. Để dẫn chứng trực quan, cụ thể các dự án, ví hoặc mã giao dịch, hãy sử dụng chính xác các CÚ PHÁP ĐẶC BIỆT sau đây (Frontend sẽ tự động chuyển đổi thành giao diện đẹp mắt có ảnh và liên kết):\n` +
+      `1. NGUYÊN TẮC NGẮN GỌN & THÂN THIỆN: Hãy trả lời cực kỳ ngắn gọn, tự nhiên, súc tích và đi thẳng vào vấn đề. .\n` +
+      `2. NGUYÊN TẮC TRUNG THỰC TUYỆT ĐỐI: Chỉ trả lời dựa trên thông tin thực tế được cung cấp trong NGỮ CẢNH HỆ THỐNG ở trên. TUYỆT ĐỐI KHÔNG tự bịa đặt, giả định hoặc tự sáng tác ra bất kỳ dự án hư cấu nào. Nếu không tìm thấy thông tin phù hợp trong Ngữ cảnh hệ thống, hãy lịch sự thông báo rằng hệ thống hiện chưa có dự án hay thông tin liên quan đến từ khóa đó và gợi ý họ tham khảo các dự án hiện có trong hệ thống.\n` +
+      `3. TUYỆT ĐỐI KHÔNG dùng cú pháp Markdown thô như dấu sao (**), dấu gạch ngang thô (-), dấu thăng (#) hay ký tự huyền (\`). Hãy trả về văn bản tiếng Việt thuần tự nhiên, ngăn cách bằng emoji hoặc xuống dòng bình thường.\n` +
+      `4. Để dẫn chứng trực quan các dự án, ví hoặc mã giao dịch, hãy sử dụng chính xác các CÚ PHÁP ĐẶC BIỆT sau đây (chỉ dùng thông tin chính xác lấy từ Ngữ cảnh hệ thống, KHÔNG ĐƯỢC tự bịa đặt thông tin):\n` +
       `   * Dẫn chứng Dự án: [PROJECT: Tên dự án | slug-du-an | Link ảnh bìa nếu có | Trạng thái | Số tiền đã gọi | Số tiền mục tiêu]\n` +
       `     (Lấy thông tin chính xác từ Ngữ cảnh, ví dụ: [PROJECT: VaultPrime | vault-prime | https://picsum.photos/200 | PROGRESS | 1500 | 5000])\n` +
       `   * Dẫn chứng địa chỉ ví: [WALLET: Địa chỉ ví (ví dụ 0xabc...)]\n` +
       `   * Dẫn chứng giao dịch: [TX: Mã giao dịch txHash]\n` +
       `   * Dẫn chứng hình ảnh: [IMAGE: Mô tả ngắn | Link ảnh]\n` +
-      `3. Hãy giữ giọng điệu chuyên nghiệp, ấm áp, thân thiện, dễ gần như một chuyên viên tư vấn khách hàng thực thụ. Tránh cách nói máy móc quá hầm hố kiểu cyberpunk xa cách.`
+      `5. Giữ giọng điệu ấm áp, thông minh, sẵn sàng hỗ trợ, xưng "Tôi" hoặc "FundHive" và gọi người dùng là "bạn".`
 
-    // Lấy lịch sử hội thoại gần nhất (tối đa 4 tin nhắn gần nhất để tối ưu dung lượng Prompt)
+    // Lấy lịch sử hội thoại gần nhất (tối đa 10 tin nhắn để giữ ngữ cảnh tự nhiên)
     const messagesHistory = (session.messages as any[]) || []
-    const lastMessages = messagesHistory.slice(-4)
+    const lastMessages = messagesHistory.slice(-10)
 
     // Tạo nội dung cho Gemini
     const contents: any[] = []
-
-    // Thêm System Instruction vào dưới dạng Developer Instruction hoặc Prompt khởi đầu
-    contents.push({
-      role: 'user',
-      parts: [{ text: `System Instruction: ${systemInstruction}` }],
-    })
-    contents.push({
-      role: 'model',
-      parts: [{ text: `HỆ THỐNG ĐÃ SẴN SÀNG. TỔNG ĐÀI FUNDHIVE HÂN HẠNH PHỤC VỤ.` }],
-    })
 
     // Nạp lịch sử
     for (const msg of lastMessages) {
@@ -186,7 +178,10 @@ export class AiService {
 
     // 7. Gọi Gemini API Stream
     try {
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
+      const model = this.genAI.getGenerativeModel({
+        model: 'gemini-2.0-flash',
+        systemInstruction: systemInstruction,
+      })
       const result = await model.generateContentStream({ contents })
       return {
         isDemo: false,
@@ -198,7 +193,7 @@ export class AiService {
       console.error('Lỗi gọi Gemini SDK:', error)
       return {
         isDemo: true,
-        text: '❌ Đã xảy ra lỗi khi kết nối với máy chủ AI Google Gemini. Vui lòng kiểm tra lại API Key hoặc mạng kết nối.',
+        text: '🤖 Trợ lý ảo FundHive hiện đang bận hoặc gặp sự cố kết nối tạm thời. Bạn vui lòng chờ một lát rồi gửi lại tin nhắn nhé! Cảm ơn sự thông cảm của bạn. 🙏',
       }
     }
   }

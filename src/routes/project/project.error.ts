@@ -61,17 +61,17 @@ export const BlockchainCancelProjectException = new UnprocessableEntityException
 ])
 
 // Refund-related exceptions
-export const ProjectNotRefundableException = new BadRequestException('Project is not failed or expired. Cannot refund.')
-export const NoInvestmentsToRefundException = new BadRequestException('No successful investments found to refund.')
-export const BlockchainTxPendingOrFailedException = new BadRequestException(
-  'Transaction is pending or failed on blockchain.',
-)
+export const ProjectNotRefundableException = new BadRequestException('Error.ProjectNotRefundable')
+export const NoInvestmentsToRefundException = new BadRequestException('Error.NoInvestmentsToRefund')
+export const BlockchainTxPendingOrFailedException = new BadRequestException('Error.BlockchainTxPendingOrFailed')
 export class BlockchainVerificationException extends BadRequestException {
-  constructor(message: string) {
-    super(`Failed to verify transaction on blockchain: ${message}`)
+  constructor(message?: string) {
+    super(message || 'Error.BlockchainVerificationFailed')
   }
 }
 
 // Review-related exceptions
-export const ReviewNotFoundException = new NotFoundException('Review not found')
-export const UnauthorizedReviewAccessException = new ForbiddenException('Unauthorized to modify this review')
+export const ReviewNotFoundException = new NotFoundException('Error.ReviewNotFound')
+export const UnauthorizedReviewAccessException = new ForbiddenException('Error.UnauthorizedReviewAccess')
+
+export const UserKYCRequiredException = new ForbiddenException('Error.UserKYCRequired')

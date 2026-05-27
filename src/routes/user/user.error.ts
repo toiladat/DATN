@@ -25,4 +25,4 @@ export const RoleNotFoundException = new UnprocessableEntityException([
 export const CannotUpdateOrDeleteYourselfException = new ForbiddenException('Error.CannotUpdateOrDeleteYourself')
 
 export const UserNotFoundException = new NotFoundException('Error.UserNotFound')
-export const ProjectNotFoundForUserException = new NotFoundException('Project not found for this user')
+export const ProjectNotFoundForUserException = new NotFoundException('Error.ProjectNotFoundForUser')

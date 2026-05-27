@@ -3,6 +3,7 @@ import { ethers } from 'ethers'
 import { ProjectRepository } from './project.repo'
 import { CreateProjectBodyType, UpdateMilestoneProgressBodyType } from './project.model'
 import { EmailService } from 'src/shared/services/email.service'
+import { SharedUserRepository } from 'src/shared/repositories/shared-user.repo'
 import envConfig from 'src/shared/config'
 import {
   MilestoneNotFoundException,
@@ -12,6 +13,7 @@ import {
   MilestoneNotApprovedException,
   MilestoneAlreadyWithdrawnException,
   DuplicateWithdrawalTxException,
+  UserKYCRequiredException,
 } from './project.error'
 import { PROJECT_STATUS, MILESTONE_STATUS } from 'src/shared/constants/project.constant'
 
@@ -22,9 +24,14 @@ export class ProjectService {
   constructor(
     private readonly projectRepo: ProjectRepository,
     private readonly emailService: EmailService,
+    private readonly sharedUserRepo: SharedUserRepository,
   ) {}
 
   async create(ownerId: string, data: CreateProjectBodyType) {
+    const user = await this.sharedUserRepo.findById(ownerId)
+    if (!user || user.status !== 'ACTIVE') {
+      throw UserKYCRequiredException
+    }
     return this.projectRepo.createProject(ownerId, data)
   }
 

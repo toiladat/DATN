@@ -1,10 +1,11 @@
-import { Controller, Post, Body, Res, Ip, Req } from '@nestjs/common'
+import { Controller, Post, Body, Res, Ip, Req, UseGuards } from '@nestjs/common'
 import { ApiTags, ApiOperation } from '@nestjs/swagger'
 import { Response, Request } from 'express'
 import { AiService } from './ai.service'
 import { IsPublic } from 'src/shared/decorators/auth.decorator'
 import { ActivateUser } from 'src/shared/decorators/activate-user.decorator'
 import { AccessTokenPayload } from 'src/shared/types/jwt.type'
+import { OptionalAccessTokenGuard } from 'src/shared/guards/optional-access-token.guard'
 
 @ApiTags('AI Virtual Assistant')
 @Controller('ai')
@@ -12,6 +13,7 @@ export class AiController {
   constructor(private readonly aiService: AiService) {}
 
   @Post('chat-stream')
+  @UseGuards(OptionalAccessTokenGuard)
   @IsPublic()
   @ApiOperation({
     summary: 'Stream phản hồi của trợ lý ảo AI thông qua Server-Sent Events (SSE)',
@@ -78,7 +80,9 @@ export class AiController {
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('Lỗi khi streaming dữ liệu AI:', err)
-      res.write(`data: ${JSON.stringify({ text: '❌ Đã xảy ra lỗi gián đoạn đường truyền stream.' })}\n\n`)
+      res.write(
+        `data: ${JSON.stringify({ text: '🤖 Kết nối tạm thời bị gián đoạn. Bạn vui lòng chờ một lát rồi gửi lại tin nhắn nhé! 🙏' })}\n\n`,
+      )
     } finally {
       res.end()
     }

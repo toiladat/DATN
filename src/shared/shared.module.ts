@@ -12,6 +12,7 @@ import { HashingService } from './services/hashing.service'
 import { PrismaService } from './services/prisma.service'
 import { TokenService } from './services/token.service'
 import { RedisCacheService } from './services/redis-cache.service'
+import { OptionalAccessTokenGuard } from './guards/optional-access-token.guard'
 
 const sharedServices = [
   PrismaService,
@@ -21,6 +22,7 @@ const sharedServices = [
   EmailService,
   GenerateIdService,
   RedisCacheService,
+  OptionalAccessTokenGuard,
 ]
 
 @Global() // global mode
