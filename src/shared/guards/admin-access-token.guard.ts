@@ -9,7 +9,11 @@ export class AdminAccessTokenGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest()
 
-    const accessToken: string = request.headers.authorization?.split(' ')[1]
+    let accessToken: string = request.headers.authorization?.split(' ')[1]
+    if (!accessToken && request.query?.token) {
+      accessToken = request.query.token as string
+    }
+
     if (!accessToken) {
       return false
     }

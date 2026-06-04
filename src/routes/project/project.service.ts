@@ -5,6 +5,7 @@ import { CreateProjectBodyType, UpdateMilestoneProgressBodyType } from './projec
 import { EmailService } from 'src/shared/services/email.service'
 import { SharedUserRepository } from 'src/shared/repositories/shared-user.repo'
 import envConfig from 'src/shared/config'
+import { AdminDashboardService } from '../admin-dashboard/admin-dashboard.service'
 import {
   MilestoneNotFoundException,
   BlockchainCancelProjectException,
@@ -25,6 +26,7 @@ export class ProjectService {
     private readonly projectRepo: ProjectRepository,
     private readonly emailService: EmailService,
     private readonly sharedUserRepo: SharedUserRepository,
+    private readonly adminDashboardService: AdminDashboardService,
   ) {}
 
   async create(ownerId: string, data: CreateProjectBodyType) {
@@ -32,7 +34,28 @@ export class ProjectService {
     if (!user || user.status !== 'ACTIVE') {
       throw UserKYCRequiredException
     }
-    return this.projectRepo.createProject(ownerId, data)
+    const project = await this.projectRepo.createProject(ownerId, data)
+
+    // Notify admins in real-time using SSE with natural human voice and project image
+    const creatorName = user.name || user.email
+    const title = '🔥 Có dự án mới cần duyệt gấp!'
+    const message = `Dự án "${data.basics.title}" vừa được gửi bởi ${creatorName}. Admin vào thẩm định và duyệt ngay nhé! ✨`
+    const type = 'PROJECT_PENDING'
+    const projectImage = data.basics.image?.[0] || ''
+    const metadata = JSON.stringify({ projectId: project.id, image: projectImage })
+
+    this.adminDashboardService
+      .createNotification({
+        title,
+        message,
+        type,
+        metadata,
+      })
+      .catch((err) => {
+        this.logger.error('Failed to create admin notification for new project:', err)
+      })
+
+    return project
   }
 
   async approveProject(projectId: string) {

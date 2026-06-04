@@ -130,8 +130,6 @@ model MilestoneUpdate {
   updatedAt   DateTime @updatedAt
 }
 
-
-
 model WithdrawalRecord {
   id          String           @id @default(auto()) @map("_id") @db.ObjectId
   milestoneId String           @unique @db.ObjectId
@@ -191,8 +189,6 @@ model ProjectCategory {
   @@unique([projectId, categoryId])
 }
 
-
-
 model Device {
   id            String         @id @default(auto()) @map("_id") @db.ObjectId
   userId        String         @db.ObjectId
@@ -219,9 +215,6 @@ model RefreshToken {
 
   @@index([expiresAt])
 }
-
-
-
 
 model Like {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
@@ -380,4 +373,15 @@ model AiChatSession {
   @@index([ipAddress])
 }
 
- 
+model Notification {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  message   String
+  type      String   @default("INFO")
+  isRead    Boolean  @default(false)
+  metadata  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isRead, createdAt])
+}

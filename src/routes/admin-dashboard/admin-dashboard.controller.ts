@@ -1,7 +1,9 @@
-import { Controller, Get, UseGuards, Req } from '@nestjs/common'
+import { Controller, Get, UseGuards, Req, Sse, Patch, Post, Param } from '@nestjs/common'
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger'
 import { AdminDashboardService } from './admin-dashboard.service'
 import { AdminAccessTokenGuard } from 'src/shared/guards/admin-access-token.guard'
+import { SkipThrottle } from '@nestjs/throttler'
+import { IsPublic } from 'src/shared/decorators/auth.decorator'
 
 @ApiTags('Admin Dashboard')
 @Controller('admin/dashboard')
@@ -9,6 +11,28 @@ import { AdminAccessTokenGuard } from 'src/shared/guards/admin-access-token.guar
 @ApiBearerAuth()
 export class AdminDashboardController {
   constructor(private readonly adminDashboardService: AdminDashboardService) {}
+
+  @IsPublic()
+  @SkipThrottle()
+  @Sse('notifications/sse')
+  sse() {
+    return this.adminDashboardService.getNotificationStream()
+  }
+
+  @Get('notifications')
+  async getNotifications() {
+    return this.adminDashboardService.getNotifications()
+  }
+
+  @Patch('notifications/:id/read')
+  async markAsRead(@Param('id') id: string) {
+    return this.adminDashboardService.markAsRead(id)
+  }
+
+  @Post('notifications/read-all')
+  async markAllAsRead() {
+    return this.adminDashboardService.markAllAsRead()
+  }
 
   @Get('stats')
   async getStats(@Req() req: any) {

@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, MessageEvent } from '@nestjs/common'
 import { PrismaService } from 'src/shared/services/prisma.service'
 import { RedisCacheService } from 'src/shared/services/redis-cache.service'
 import { PROJECT_STATUS, MILESTONE_STATUS, WITHDRAWAL_STATUS } from 'src/shared/constants/project.constant'
+import { Subject } from 'rxjs'
 
 export type ActivityType = 'PROJECT_LAUNCHED' | 'WITHDRAWAL_REQUEST' | 'MILESTONE_COMPLETED'
 
@@ -35,10 +36,50 @@ export interface DashboardStatsType {
 
 @Injectable()
 export class AdminDashboardService {
+  private readonly notification$ = new Subject<MessageEvent>()
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly redisCacheService: RedisCacheService,
   ) {}
+
+  getNotificationStream() {
+    return this.notification$.asObservable()
+  }
+
+  emitNotification(notification: any) {
+    this.notification$.next({
+      data: notification,
+      type: 'notification',
+    })
+  }
+
+  async createNotification(data: { title: string; message: string; type: string; metadata?: string }) {
+    const notif = await this.prisma.notification.create({ data })
+    this.emitNotification(notif)
+    return notif
+  }
+
+  async getNotifications() {
+    return this.prisma.notification.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    })
+  }
+
+  async markAsRead(id: string) {
+    return this.prisma.notification.update({
+      where: { id },
+      data: { isRead: true },
+    })
+  }
+
+  async markAllAsRead() {
+    return this.prisma.notification.updateMany({
+      where: { isRead: false },
+      data: { isRead: true },
+    })
+  }
 
   async getStats(adminId?: string): Promise<DashboardStatsType> {
     const cacheKey = `admin_dashboard_stats_${adminId || 'anonymous'}`
