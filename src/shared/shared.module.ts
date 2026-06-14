@@ -13,6 +13,7 @@ import { PrismaService } from './services/prisma.service'
 import { TokenService } from './services/token.service'
 import { RedisCacheService } from './services/redis-cache.service'
 import { OptionalAccessTokenGuard } from './guards/optional-access-token.guard'
+import { FirebaseMessagingService } from './services/firebase-messaging.service'
 
 const sharedServices = [
   PrismaService,
@@ -23,6 +24,7 @@ const sharedServices = [
   GenerateIdService,
   RedisCacheService,
   OptionalAccessTokenGuard,
+  FirebaseMessagingService,
 ]
 
 @Global() // global mode

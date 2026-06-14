@@ -21,6 +21,7 @@ export const INVESTMENT_STATUS = {
   PENDING: 'PENDING',
   SUCCESS: 'SUCCESS',
   FAILED: 'FAILED',
+  REFUNDED: 'REFUNDED',
 } as const
 
 export const WITHDRAWAL_STATUS = {

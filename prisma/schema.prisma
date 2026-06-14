@@ -255,22 +255,6 @@ enum UserStatus {
   BLOCKED
 }
 
-enum HTTPMethod {
-  GET
-  POST
-  PUT
-  DELETE
-  PATCH
-  OPTIONS
-  HEAD
-}
-
-enum ContentStatus {
-  PENDING
-  PUBLISHED
-  REJECTED
-  DRAFT
-}
 
 enum MilestoneStatus {
   COMING_SOON // sắp tới
@@ -316,6 +300,7 @@ model Admin {
   updatedCategories  Category[]   @relation("CategoryUpdatedBy")
   refreshTokens AdminRefreshToken[]
   devices       AdminDevice[]
+  deviceTokens  AdminDeviceToken[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -384,4 +369,15 @@ model Notification {
   updatedAt DateTime @updatedAt
 
   @@index([isRead, createdAt])
+}
+
+model AdminDeviceToken {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  token     String   @unique
+  adminId   String   @db.ObjectId
+  admin     Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([adminId])
 }

@@ -413,12 +413,14 @@ export class ProjectRepository {
 
         // Calculate myInvestmentAmount and investedAt for the specific user
         const userInvestments = p.investments.filter(
-          (inv) => inv.userId === userId && (inv.status === INVESTMENT_STATUS.SUCCESS || inv.status === 'REFUNDED'),
+          (inv) =>
+            inv.userId === userId &&
+            (inv.status === INVESTMENT_STATUS.SUCCESS || inv.status === INVESTMENT_STATUS.REFUNDED),
         )
         const myInvestmentAmount = userInvestments.reduce((sum, inv) => sum + inv.amount, 0)
 
         // Check if user has already refunded
-        const hasRefunded = userInvestments.some((inv) => inv.status === 'REFUNDED')
+        const hasRefunded = userInvestments.some((inv) => inv.status === INVESTMENT_STATUS.REFUNDED)
 
         // Lấy thời điểm đầu tư mới nhất hoặc cũ nhất (tuỳ chọn, ở đây lấy mới nhất)
         const latestInvestment = userInvestments.sort(
@@ -743,7 +745,7 @@ export class ProjectRepository {
         id: { in: investments.map((inv) => inv.id) },
       },
       data: {
-        status: 'REFUNDED' as any, // Using 'any' as it was just added to prisma schema and client might not be refreshed yet in TS types
+        status: INVESTMENT_STATUS.REFUNDED,
       },
     })
 
@@ -1134,5 +1136,34 @@ export class ProjectRepository {
 
       return updated
     })
+  }
+
+  async getProjectStats() {
+    const [total, fundraising, active, success] = await Promise.all([
+      this.prisma.project.count({
+        where: {
+          OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
+        },
+      }),
+      this.prisma.project.count({
+        where: {
+          status: PROJECT_STATUS.PROGRESS,
+          OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
+        },
+      }),
+      this.prisma.project.count({
+        where: {
+          status: PROJECT_STATUS.ACTIVE,
+          OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
+        },
+      }),
+      this.prisma.project.count({
+        where: {
+          status: PROJECT_STATUS.SUCCESS,
+          OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
+        },
+      }),
+    ])
+    return { total, fundraising, active, success }
   }
 }

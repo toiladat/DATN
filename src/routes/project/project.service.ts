@@ -17,6 +17,8 @@ import {
   UserKYCRequiredException,
 } from './project.error'
 import { PROJECT_STATUS, MILESTONE_STATUS } from 'src/shared/constants/project.constant'
+import { PrismaService } from 'src/shared/services/prisma.service'
+import { FirebaseMessagingService } from 'src/shared/services/firebase-messaging.service'
 
 @Injectable()
 export class ProjectService {
@@ -27,6 +29,8 @@ export class ProjectService {
     private readonly emailService: EmailService,
     private readonly sharedUserRepo: SharedUserRepository,
     private readonly adminDashboardService: AdminDashboardService,
+    private readonly prisma: PrismaService,
+    private readonly firebaseMessagingService: FirebaseMessagingService,
   ) {}
 
   async create(ownerId: string, data: CreateProjectBodyType) {
@@ -53,6 +57,23 @@ export class ProjectService {
       })
       .catch((err) => {
         this.logger.error('Failed to create admin notification for new project:', err)
+      })
+
+    // Gửi thông báo đẩy qua Firebase Cloud Messaging (FCM) đến các thiết bị iOS của Admin
+    this.prisma.adminDeviceToken
+      .findMany({ select: { token: true } })
+      .then((deviceTokens) => {
+        if (deviceTokens && deviceTokens.length > 0) {
+          const tokens = deviceTokens.map((t) => t.token)
+          void this.firebaseMessagingService.sendMulticastNotification(tokens, {
+            title,
+            body: message,
+            projectId: project.id,
+          })
+        }
+      })
+      .catch((err) => {
+        this.logger.error('Failed to query admin device tokens or dispatch FCM:', err)
       })
 
     return project
@@ -263,5 +284,9 @@ export class ProjectService {
 
     // 6. Tạo WithdrawalRecord với status PENDING qua Repository
     return this.projectRepo.submitWithdrawMilestone(milestoneId, projectId, txHash, milestone.amount)
+  }
+
+  async getProjectStats() {
+    return this.projectRepo.getProjectStats()
   }
 }

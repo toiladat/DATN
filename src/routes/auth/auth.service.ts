@@ -5,6 +5,7 @@ import {
   InvalidWalletSignatureException,
   RefreshTokenAlreadyUsedException,
   UnauthorizedAccessException,
+  UserIsBannedException,
   WalletAddressNotFoundException,
   WalletNonceNotFoundException,
 } from 'src/routes/auth/auth.error'
@@ -17,6 +18,7 @@ import { TokenService } from 'src/shared/services/token.service'
 import { AccessTokenPayloadCreate } from 'src/shared/types/jwt.type'
 import { GetNonceQueryType, RefreshTokenBodyType, WalletLoginBodyType } from './auth.model'
 import { AuthRepository } from './auth.repo'
+import { UserStatus } from 'src/shared/constants/auth.constant'
 
 @Injectable()
 export class AuthService {
@@ -123,6 +125,7 @@ export class AuthService {
     // 1. Find the user
     const user = await this.authRepository.findUniqueUserByWallet(walletAddress)
     if (!user) throw WalletAddressNotFoundException
+    if (user.status == UserStatus.BLOCKED) throw UserIsBannedException
 
     // 2. Make sure a nonce was issued
     const nonce = await this.redisClient.get(`wallet_nonce:${walletAddress.toLowerCase()}`)

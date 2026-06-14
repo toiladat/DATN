@@ -296,3 +296,11 @@ export const RejectProjectBodySchema = z.object({
   reason: z.string().min(1, 'Reject reason is required'),
 })
 export type RejectProjectBodyType = z.infer<typeof RejectProjectBodySchema>
+
+export const ProjectStatsRestSchema = z.object({
+  total: z.number(),
+  fundraising: z.number(),
+  active: z.number(),
+  success: z.number(),
+})
+export type ProjectStatsRestType = z.infer<typeof ProjectStatsRestSchema>

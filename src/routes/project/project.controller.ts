@@ -14,6 +14,7 @@ import {
   InvestBodyDTO,
   WithdrawMilestoneBodyDTO,
   RefundBodyDTO,
+  ProjectStatsRestDTO,
 } from './project.dto'
 import { ActivateUser } from 'src/shared/decorators/activate-user.decorator'
 import { IsPublic } from 'src/shared/decorators/auth.decorator'
@@ -21,7 +22,7 @@ import { ZodSerializerDto } from 'nestjs-zod'
 import { ApiResponse } from '@nestjs/swagger'
 import { MessageResDTO } from 'src/shared/dtos/response.dto'
 
-import { Throttle } from '@nestjs/throttler'
+import { Throttle, SkipThrottle } from '@nestjs/throttler'
 
 @ApiTags('Projects')
 @Controller('projects')
@@ -38,6 +39,7 @@ export class ProjectController {
   }
 
   @Get('me')
+  @SkipThrottle()
   @ApiResponse({ status: 200, type: ProjectSummaryRestDTO })
   @ZodSerializerDto(ProjectSummaryRestDTO)
   getMyProjects(@ActivateUser('userId') userId: string) {
@@ -45,6 +47,7 @@ export class ProjectController {
   }
 
   @Get('invested')
+  @SkipThrottle()
   @ApiResponse({ status: 200, type: ProjectSummaryRestDTO })
   @ZodSerializerDto(ProjectSummaryRestDTO)
   getMyInvestedProjects(@ActivateUser('userId') userId: string) {
@@ -80,6 +83,15 @@ export class ProjectController {
   async deleteProject(@Param('id') id: string, @ActivateUser('userId') userId: string) {
     await this.projectService.delete(id, userId)
     return { message: 'Project deleted successfully' }
+  }
+
+  @Get('stats')
+  @IsPublic()
+  @SkipThrottle()
+  @ApiResponse({ status: 200, type: ProjectStatsRestDTO })
+  @ZodSerializerDto(ProjectStatsRestDTO)
+  getProjectStats() {
+    return this.projectService.getProjectStats()
   }
 
   @Get(':id')

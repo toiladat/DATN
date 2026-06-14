@@ -33,3 +33,10 @@ export const EmailAlreadyInUseException = new UnprocessableEntityException([
     path: 'email',
   },
 ])
+
+export const UserIsBannedException = new UnprocessableEntityException([
+  {
+    message: 'Error.UserIsBanned',
+    path: 'status',
+  },
+])

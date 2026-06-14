@@ -278,4 +278,18 @@ export class AdminDashboardService {
       60000,
     ) // 60 seconds TTL
   }
+
+  async registerDeviceToken(adminId: string, token: string) {
+    return this.prisma.adminDeviceToken.upsert({
+      where: { token },
+      update: { adminId },
+      create: { token, adminId },
+    })
+  }
+
+  async unregisterDeviceToken(adminId: string, token: string) {
+    return this.prisma.adminDeviceToken.deleteMany({
+      where: { token, adminId },
+    })
+  }
 }
