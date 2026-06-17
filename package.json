@@ -12,6 +12,7 @@
     "init-seed-data": "ts-node src/initialScript/init-roles.ts",
     "seed:prod": "node dist/initialScript/init-roles.js",
     "seed:ai": "ts-node src/shared/seed-ai.ts",
+    "clear-data": "ts-node src/shared/clear-fundings.ts",
     "commit": "cz",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
