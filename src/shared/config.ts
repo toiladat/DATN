@@ -50,7 +50,9 @@ const configSchema = z.object({
   CROWDFUNDING_ADDRESS: z.string(),
   PROVIDER_URL: z.string(),
   ADMIN_PRIVATE_KEY: z.string(),
-  GEMINI_API_KEY: z.string(),
+  OPENROUTER_API_KEY: z.string(),
+  OPENROUTER_BASE_URL: z.string().optional(),
+  OPENROUTER_MODEL: z.string().optional(),
 })
 
 const configServer = configSchema.safeParse(process.env)

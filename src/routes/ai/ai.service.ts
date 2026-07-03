@@ -1,20 +1,30 @@
 import { Injectable } from '@nestjs/common'
 import { PrismaService } from 'src/shared/services/prisma.service'
 import envConfig from 'src/shared/config'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import OpenAI from 'openai'
 
 @Injectable()
 export class AiService {
-  private genAI: GoogleGenerativeAI | null = null
+  private openai: OpenAI | null = null
 
   constructor(private readonly prisma: PrismaService) {
-    if (envConfig.GEMINI_API_KEY) {
-      this.genAI = new GoogleGenerativeAI(envConfig.GEMINI_API_KEY)
+    if (envConfig.OPENROUTER_API_KEY) {
+      const isOpenRouter = envConfig.OPENROUTER_BASE_URL?.includes('openrouter.ai')
+      this.openai = new OpenAI({
+        apiKey: envConfig.OPENROUTER_API_KEY,
+        baseURL: envConfig.OPENROUTER_BASE_URL || undefined,
+        defaultHeaders: isOpenRouter
+          ? {
+              'HTTP-Referer': 'http://localhost:3000',
+              'X-Title': 'FundHive',
+            }
+          : undefined,
+      })
     }
   }
 
   /**
-   * Truy xuất ngữ cảnh bảo mật và lịch sử hội thoại, gọi Gemini API để stream kết quả
+   * Truy xuất ngữ cảnh bảo mật và lịch sử hội thoại, gọi OpenAI/OpenRouter API để stream kết quả
    */
   async generateContentStream(userQuery: string, userId?: string, ipAddress?: string): Promise<any> {
     // 1. Quản lý Phiên hội thoại (Session) để lưu lịch sử
@@ -135,65 +145,79 @@ export class AiService {
       `${publicProjectsContext}\n\n` +
       `${userContextString}\n\n` +
       `QUY TẮC TRẢ LỜI & ĐỊNH DẠNG (CỰC KỲ QUAN TRỌNG):\n` +
-      `1. NGUYÊN TẮC NGẮN GỌN & THÂN THIỆN: Hãy trả lời cực kỳ ngắn gọn, tự nhiên, súc tích và đi thẳng vào vấn đề. .\n` +
-      `2. NGUYÊN TẮC TRUNG THỰC TUYỆT ĐỐI: Chỉ trả lời dựa trên thông tin thực tế được cung cấp trong NGỮ CẢNH HỆ THỐNG ở trên. TUYỆT ĐỐI KHÔNG tự bịa đặt, giả định hoặc tự sáng tác ra bất kỳ dự án hư cấu nào. Nếu không tìm thấy thông tin phù hợp trong Ngữ cảnh hệ thống, hãy lịch sự thông báo rằng hệ thống hiện chưa có dự án hay thông tin liên quan đến từ khóa đó và gợi ý họ tham khảo các dự án hiện có trong hệ thống.\n` +
-      `3. TUYỆT ĐỐI KHÔNG dùng cú pháp Markdown thô như dấu sao (**), dấu gạch ngang thô (-), dấu thăng (#) hay ký tự huyền (\`). Hãy trả về văn bản tiếng Việt thuần tự nhiên, ngăn cách bằng emoji hoặc xuống dòng bình thường.\n` +
-      `4. Để dẫn chứng trực quan các dự án, ví hoặc mã giao dịch, hãy sử dụng chính xác các CÚ PHÁP ĐẶC BIỆT sau đây (chỉ dùng thông tin chính xác lấy từ Ngữ cảnh hệ thống, KHÔNG ĐƯỢC tự bịa đặt thông tin):\n` +
-      `   * Dẫn chứng Dự án: [PROJECT: Tên dự án | slug-du-an | Link ảnh bìa nếu có | Trạng thái | Số tiền đã gọi | Số tiền mục tiêu]\n` +
-      `     (Lấy thông tin chính xác từ Ngữ cảnh, ví dụ: [PROJECT: VaultPrime | vault-prime | https://picsum.photos/200 | PROGRESS | 1500 | 5000])\n` +
+      `1. QUY TẮC NGÔN NGỮ: Bạn PHẢI LUÔN LUÔN trả lời bằng tiếng Việt (Vietnamese) trong mọi tình huống. Tuyệt đối không bao giờ được sử dụng tiếng Pháp, tiếng Anh hay bất kỳ ngôn ngữ nào khác.\n` +
+      `2. NGUYÊN TẮC SIÊU NGẮN GỌN: Hãy trả lời cực kỳ ngắn gọn (chỉ từ 1 đến 2 câu ngắn). TUYỆT ĐỐI không giải thích dông dài, không viết lan man.\n` +
+      `3. TRÁNH TRÙNG LẶP THÔNG TIN: Khi đã dẫn chứng dự án bằng thẻ đặc biệt [PROJECT: ...], bạn KHÔNG ĐƯỢC viết lại hoặc mô tả lại các thông tin của dự án đó (như trạng thái, số tiền đã gọi, mục tiêu) bằng chữ thường ở bên ngoài. Người dùng sẽ nhìn thấy tất cả thông tin này trên thẻ dự án rồi.\n` +
+      `4. NGUYÊN TẮC TRUNG THỰC TUYỆT ĐỐI: Chỉ trả lời dựa trên thông tin thực tế được cung cấp trong NGỮ CẢNH HỆ THỐNG ở trên. TUYỆT ĐỐI KHÔNG tự bịa đặt, giả định hoặc tự sáng tác ra bất kỳ dự án hư cấu nào. Nếu không tìm thấy thông tin phù hợp, hãy lịch sự thông báo rằng hệ thống hiện chưa có dự án hay thông tin liên quan đến từ khóa đó.\n` +
+      `5. TUYỆT ĐỐI KHÔNG dùng cú pháp Markdown thô như dấu sao (**), dấu gạch ngang thô (-), dấu thăng (#) hay ký tự huyền (\`). Hãy trả về văn bản tiếng Việt thuần tự nhiên, ngăn cách bằng emoji hoặc xuống dòng bình thường.\n` +
+      `6. Để dẫn chứng trực quan các dự án, ví hoặc mã giao dịch, hãy sử dụng chính xác các CÚ PHÁP ĐẶC BIỆT sau đây (chỉ dùng thông tin chính xác lấy từ Ngữ cảnh hệ thống, sao chép CHÍNH XÁC link ảnh, TUYỆT ĐỐI KHÔNG được thêm từ khóa "slug: " vào trường slug):\n` +
+      `   * Dẫn chứng Dự án: [PROJECT: Tên dự án | slug-du-an | Link ảnh bìa | Trạng thái | Số tiền đã gọi | Số tiền mục tiêu]\n` +
+      `     (Ví dụ đúng: [PROJECT: VaultPrime | vault-prime | https://picsum.photos/200 | PROGRESS | 1500 | 5000]. Ví dụ sai: [PROJECT: VaultPrime | slug: vault-prime | ...])\n` +
       `   * Dẫn chứng địa chỉ ví: [WALLET: Địa chỉ ví (ví dụ 0xabc...)]\n` +
       `   * Dẫn chứng giao dịch: [TX: Mã giao dịch txHash]\n` +
       `   * Dẫn chứng hình ảnh: [IMAGE: Mô tả ngắn | Link ảnh]\n` +
-      `5. Giữ giọng điệu ấm áp, thông minh, sẵn sàng hỗ trợ, xưng "Tôi" hoặc "FundHive" và gọi người dùng là "bạn".`
+      `7. Giữ giọng điệu ấm áp, thông minh, sẵn sàng hỗ trợ, xưng "Tôi" hoặc "FundHive" và gọi người dùng là "bạn".`
 
     // Lấy lịch sử hội thoại gần nhất (tối đa 10 tin nhắn để giữ ngữ cảnh tự nhiên)
     const messagesHistory = (session.messages as any[]) || []
     const lastMessages = messagesHistory.slice(-10)
 
-    // Tạo nội dung cho Gemini
-    const contents: any[] = []
-
-    // Nạp lịch sử
-    for (const msg of lastMessages) {
-      contents.push({
-        role: msg.sender === 'user' ? 'user' : 'model',
-        parts: [{ text: msg.text }],
-      })
-    }
-
-    // Nạp câu hỏi mới của người dùng
-    contents.push({
-      role: 'user',
-      parts: [{ text: userQuery }],
-    })
-
     // 6. Kiểm tra cấu hình API Key
-    if (!this.genAI) {
-      // Mock stream hoặc trả về cảnh báo nếu chưa điền API Key
+    if (!this.openai) {
       return {
         isDemo: true,
-        text: '⚠️ Trợ lý ảo AI FundHive đã được thiết lập thành công ở Backend NestJS và MongoDB Atlas!\n\nTuy nhiên, biến môi trường `GEMINI_API_KEY` trong file `BE/.env` hiện đang để trống. Vui lòng thêm API Key của bạn để trải nghiệm tính năng chat trực tiếp bằng AI nhé.',
+        text: '⚠️ Trợ lý ảo AI FundHive đã được thiết lập thành công ở Backend NestJS và MongoDB Atlas!\n\nTuy nhiên, biến môi trường `OPENROUTER_API_KEY` trong file `BE/.env` hiện đang để trống. Vui lòng thêm API Key của bạn để trải nghiệm tính năng chat trực tiếp bằng AI nhé.',
       }
     }
 
-    // 7. Gọi Gemini API Stream
+    // 7. Gọi OpenAI/OpenRouter API Stream
     try {
-      const model = this.genAI.getGenerativeModel({
-        model: 'gemini-2.0-flash',
-        systemInstruction: systemInstruction,
+      const messages: any[] = [{ role: 'system', content: systemInstruction }]
+
+      // Nạp lịch sử
+      for (const msg of lastMessages) {
+        messages.push({
+          role: msg.sender === 'user' ? 'user' : 'assistant',
+          content: msg.text,
+        })
+      }
+
+      // Nạp câu hỏi mới của người dùng
+      messages.push({
+        role: 'user',
+        content: userQuery,
       })
-      const result = await model.generateContentStream({ contents })
+
+      const modelName = envConfig.OPENROUTER_MODEL || 'openrouter/free'
+      const response = await this.openai.chat.completions.create({
+        model: modelName,
+        messages: messages,
+        stream: true,
+      })
+
+      // Map OpenAI chunk schema sang Gemini stream chunk { text: () => string } để tương thích với controller
+      const mappedStream = (async function* () {
+        for await (const chunk of response) {
+          const text = chunk.choices[0]?.delta?.content || ''
+          if (text) {
+            yield {
+              text: () => text,
+            }
+          }
+        }
+      })()
+
       return {
         isDemo: false,
-        stream: result.stream,
+        stream: mappedStream,
         session,
       }
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error('Lỗi gọi Gemini SDK:', error)
+      console.error('Lỗi gọi OpenAI/OpenRouter SDK:', error)
       return {
         isDemo: true,
-        text: '🤖 Trợ lý ảo FundHive hiện đang bận hoặc gặp sự cố kết nối tạm thời. Bạn vui lòng chờ một lát rồi gửi lại tin nhắn nhé! Cảm ơn sự thông cảm của bạn. 🙏',
+        text: '🤖 Trợ lý ảo FundHive hiện đang bận hoặc gặp sự cố kết nối tạm thời với OpenRouter. Bạn vui lòng chờ một lát rồi gửi lại tin nhắn nhé! Cảm ơn sự thông cảm của bạn. 🙏',
       }
     }
   }
