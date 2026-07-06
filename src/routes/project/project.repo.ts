@@ -387,7 +387,7 @@ export class ProjectRepository {
         investments: {
           some: {
             userId: userId,
-            status: INVESTMENT_STATUS.SUCCESS, // only count successful investments
+            status: { in: [INVESTMENT_STATUS.SUCCESS, INVESTMENT_STATUS.REFUNDED] },
           },
         },
         OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
